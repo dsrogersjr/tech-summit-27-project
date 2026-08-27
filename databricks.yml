@@ -35,7 +35,7 @@ bundle:
 variables:
   catalog:
     description: "Unity Catalog for Sentinel resources"
-    default: solution_builder
+    default: tech_summit_27_sentenel
   schema:
     description: "Schema within the catalog (created by this bundle)"
     default: sentinel_ipp
