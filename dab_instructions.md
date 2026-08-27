@@ -14,21 +14,19 @@ rebinding). Set your CLI profile (`--profile <name>`) for the target workspace.
 
 # 2. Create resource shells (schema, volume, pipeline, dashboard, app) + setup job
 databricks bundle deploy \
-  --var catalog=solution_builder \
-  --var schema=sentinel_ipp \
-  --var warehouse_id=<your-sql-warehouse-id>
+  --var catalog=tech_summit_27_sentenel \
+  --var schema=sentinel_ipp
 
 # 3. Run the setup job (data → pipeline → metric view → Genie → grant SP → export IDs)
 databricks bundle run sentinel_setup \
-  --var catalog=solution_builder \
-  --var schema=sentinel_ipp \
-  --var warehouse_id=<your-sql-warehouse-id>
+  --var catalog=tech_summit_27_sentenel \
+  --var schema=sentinel_ipp
 
 # 4. Grant the app SP on the Lakebase (Postgres) schemas
 ./app/scripts/lakebase_grant_app_credential.sh \
   --app-name dbgen-sentinel-ipp \
-  --project-id dbdemos-asset-generator \
-  --db-name dbgen_sentinel_ipp
+  --project-id sentenel-tech-summit-27 \
+  --db-name sentenel_tech_summit_27
 
 # 5. Harvest resolved IDs → write app.yaml env → deploy the app
 ./app/scripts/finalize_app.sh
