@@ -1,0 +1,40 @@
+{
+  "short_description": "Sentinel \u2014 a federal Benefits Agency's improper-payment PREVENTION system. Improper payments run ~6% of ~$60B outlays (~$3.6B/yr), caught today after disbursement via slow 'pay-and-chase' recovery. Sentinel gives program-integrity examiners a governed pre-disbursement view that flags a risky payment AND prescribes the disposition \u2014 release, hold for verification, or refer to investigation \u2014 for the examiner to approve before funds move. A spike of high-risk pre-disbursement payments (cross-agency fraud-match feed + eligibility refresh ~3 weeks ago) surfaced duplicate identities, deceased payees, income mismatches, and cross-agency fraud flags. Every point of improper rate prevented pre-disbursement is ~$600M/yr; the assistant's AI spend is bounded (~$500K/yr, per-program-attributable) and every recommendation is audit-ready for the IG and GAO.",
+  "capabilities": {
+    "buildable": [
+      "synthetic-data-gen",
+      "sdp",
+      "metric-views",
+      "aibi-dashboards",
+      "genie",
+      "databricks-apps",
+      "lakebase"
+    ],
+    "optional": [
+      "ml-training-serving"
+    ],
+    "talking_track": [
+      "lakeflow-connect",
+      "unity-catalog",
+      "ai-gateway",
+      "genie-one",
+      "genie-code"
+    ]
+  },
+  "created_resources": {
+    "catalog": "solution_builder",
+    "schema": "sentinel_ipp",
+    "warehouse_id": "a94beda3aab06fa4",
+    "pipeline_id": "df9ee908-6508-44ce-b6d3-a3acd8338541",
+    "metric_view_name": "solution_builder.sentinel_ipp.mv_payment_risk",
+    "genie_space_id": "01f1a23c173d1fbdaff68c68b0cee3c4",
+    "dashboard_id": "01f1a23d6cff1643930aad6421559650",
+    "app": {
+      "name": "dbgen-sentinel-ipp",
+      "deployment_note": "Preview-validated (boots, syncs 187 rows to Lakebase, data endpoints return real rows). Not deployed via `databricks apps deploy` — deploy on explicit request."
+    },
+    "lakebase_project_id": "2ab8ad6f-0376-442a-bf52-cc74907201cf",
+    "lakebase_project_slug": "dbdemos-asset-generator",
+    "lakebase_database": "dbgen_sentinel_ipp"
+  }
+}

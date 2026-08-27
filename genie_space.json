@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "config": {
+    "sample_questions": [
+      {"id": "10000000000000000000000000000001", "question": ["How much improper-payment exposure are we at risk of in the current queue, and how many flagged cases do we have?"]},
+      {"id": "10000000000000000000000000000002", "question": ["Break down the improper-payment exposure and flagged case count by risk level."]},
+      {"id": "10000000000000000000000000000003", "question": ["Which benefit programs carry the highest improper-payment risk?"]},
+      {"id": "10000000000000000000000000000004", "question": ["Payment PAY-0000214 is flagged — how many fraud signals does it carry, and what's the recommended disposition?"]},
+      {"id": "10000000000000000000000000000005", "question": ["What's the best disposition for Payment PAY-0000214, and how much could we recover if we investigate?"]},
+      {"id": "10000000000000000000000000000006", "question": ["Across all flagged cases, how many are recommended for each disposition, and what's the projected recovery by disposition?"]},
+      {"id": "10000000000000000000000000000007", "question": ["Which fraud signals are most common in high-risk cases?"]}
+    ]
+  },
+  "data_sources": {
+    "tables": [
+      {"identifier": "solution_builder.sentinel_ipp.gold_disposition_recommendations"},
+      {"identifier": "solution_builder.sentinel_ipp.gold_open_queue"},
+      {"identifier": "solution_builder.sentinel_ipp.mv_payment_risk"},
+      {"identifier": "solution_builder.sentinel_ipp.raw_beneficiaries"},
+      {"identifier": "solution_builder.sentinel_ipp.raw_payment_fraud_flags"}
+    ]
+  },
+  "instructions": {
+    "example_question_sqls": [
+      {
+        "id": "20000000000000000000000000000001",
+        "question": ["How much improper-payment exposure are we at risk of in the current queue, and how many flagged cases do we have?"],
+        "sql": ["SELECT ROUND(MEASURE(`improper_payment_exposure_usd`)) AS improper_exposure_usd,\n", "  MEASURE(`flagged_payment_count`) AS flagged_cases\n", "FROM solution_builder.sentinel_ipp.mv_payment_risk"]
+      },
+      {
+        "id": "20000000000000000000000000000002",
+        "question": ["Break down the improper-payment exposure and flagged case count by risk level."],
+        "sql": ["SELECT risk_level,\n", "  ROUND(MEASURE(`improper_payment_exposure_usd`)) AS improper_exposure_usd,\n", "  MEASURE(`flagged_payment_count`) AS flagged_cases\n", "FROM solution_builder.sentinel_ipp.mv_payment_risk\n", "GROUP BY risk_level ORDER BY improper_exposure_usd DESC"]
+      },
+      {
+        "id": "20000000000000000000000000000003",
+        "question": ["Which benefit programs carry the highest improper-payment risk?"],
+        "sql": ["SELECT program,\n", "  ROUND(SUM(improper_payment_exposure_usd)) AS improper_exposure_usd,\n", "  COUNT(*) AS flagged_cases\n", "FROM solution_builder.sentinel_ipp.gold_open_queue\n", "GROUP BY program ORDER BY improper_exposure_usd DESC"]
+      },
+      {
+        "id": "20000000000000000000000000000004",
+        "question": ["Payment PAY-0000214 is flagged — how many fraud signals does it carry, and what's the recommended disposition?"],
+        "sql": ["SELECT q.payment_id, q.program, q.risk_level, q.n_signals, q.signal_list,\n", "  ROUND(q.improper_payment_exposure_usd) AS improper_exposure_usd, r.recommended_disposition\n", "FROM solution_builder.sentinel_ipp.gold_open_queue q\n", "JOIN solution_builder.sentinel_ipp.gold_disposition_recommendations r USING (payment_id)\n", "WHERE q.payment_id = 'PAY-0000214'"]
+      },
+      {
+        "id": "20000000000000000000000000000005",
+        "question": ["What's the best disposition for Payment PAY-0000214, and how much could we recover if we investigate?"],
+        "sql": ["SELECT payment_id, recommended_disposition, confidence_score,\n", "  ROUND(projected_recovery_if_investigated_usd) AS projected_recovery_usd, reasoning\n", "FROM solution_builder.sentinel_ipp.gold_disposition_recommendations\n", "WHERE payment_id = 'PAY-0000214'"]
+      },
+      {
+        "id": "20000000000000000000000000000006",
+        "question": ["Across all flagged cases, how many are recommended for each disposition, and what's the projected recovery by disposition?"],
+        "sql": ["SELECT recommended_disposition, COUNT(*) AS case_count,\n", "  ROUND(SUM(projected_recovery_if_investigated_usd)) AS projected_recovery_usd\n", "FROM solution_builder.sentinel_ipp.gold_disposition_recommendations\n", "GROUP BY recommended_disposition ORDER BY projected_recovery_usd DESC"]
+      },
+      {
+        "id": "20000000000000000000000000000007",
+        "question": ["Which fraud signals are most common in high-risk cases?"],
+        "sql": ["SELECT f.signal, COUNT(DISTINCT f.payment_id) AS payment_count\n", "FROM solution_builder.sentinel_ipp.raw_payment_fraud_flags f\n", "JOIN solution_builder.sentinel_ipp.gold_open_queue q ON f.payment_id = q.payment_id\n", "WHERE q.risk_level = 'high'\n", "GROUP BY f.signal ORDER BY payment_count DESC"]
+      }
+    ],
+    "text_instructions": [
+      {
+        "id": "30000000000000000000000000000001",
+        "content": [
+          "You analyze Sentinel payment-integrity data for Della Okonkwo (Deputy Commissioner for Program Integrity, non-technical). Sentinel prevents improper payments PRE-DISBURSEMENT instead of chasing them after they're paid.\n",
+          "WHAT HAPPENED: A cross-agency fraud-match feed + beneficiary eligibility-data refresh landed ~3 weeks ago and surfaced a SPIKE of pre-disbursement payments flagged with fraud signals: duplicate identity, deceased payee, income mismatch, benefit overlap, cross-agency fraud flag, employment mismatch, residence mismatch, manual-review flags. This is a sudden WAVE.\n",
+          "WHAT TO HELP DELLA DO: For each point of improper-payment rate prevented pre-disbursement, the agency keeps ~$600M/yr. Help her (1) size the improper-payment exposure in the queue, (2) find where it concentrates (risk level, program, signal type), (3) get the prescribed disposition for a specific payment — release / hold_for_verification / refer_to_investigation — before funds disburse.\n",
+          "BASELINES: A healthy payment carries 0 fraud signals. risk_level is the single risk signal: 'high' (2+ signals incl. a strong one), 'moderate' (1 signal), 'low' (weak-only). Strong signals: duplicate_identity, deceased_payee, cross_agency_fraud_flag.\n",
+          "HEADLINE NUMBERS — always answer from mv_payment_risk (same definitions as the dashboard tiles): improper-payment exposure = MEASURE(`improper_payment_exposure_usd`); flagged count = MEASURE(`flagged_payment_count`); queue value = MEASURE(`total_queue_value_usd`); disposition counts = MEASURE(`release_recommended_count`) / MEASURE(`hold_recommended_count`) / MEASURE(`investigate_recommended_count`).\n",
+          "PER-PAYMENT detail (signals, risk, exposure, recommendation) comes from gold_open_queue joined to gold_disposition_recommendations on payment_id. The hero payment is PAY-0000214 (TANF, $1,850, 2 strong signals) → prescribed hold_for_verification.\n",
+          "TONE: concise, decision-oriented, dollars-first. After answering, offer the next step (rank the disposition for a payment, or show the investigation backlog)."
+        ]
+      }
+    ]
+  }
+}

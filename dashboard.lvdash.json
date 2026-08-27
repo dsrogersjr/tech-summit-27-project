@@ -1,0 +1,250 @@
+{
+  "datasets": [
+    {
+      "name": "ds_risk",
+      "displayName": "Payment risk (metric view)",
+      "queryLines": [
+        "SELECT program, risk_level, ",
+        "MEASURE(`improper_payment_exposure_usd`) AS improper_exposure_usd, ",
+        "MEASURE(`flagged_payment_count`) AS flagged_count, ",
+        "MEASURE(`projected_recovery_if_investigated_usd`) AS recovery_usd, ",
+        "MEASURE(`payment_count`) AS queue_depth ",
+        "FROM mv_payment_risk GROUP BY ALL"
+      ]
+    },
+    {
+      "name": "ds_queue",
+      "displayName": "Open flagged queue",
+      "queryLines": [
+        "SELECT payment_id, program, risk_level, n_signals, ",
+        "ARRAY_JOIN(signal_list, ', ') AS signal_list, payment_amount_usd, ",
+        "improper_payment_exposure_usd, projected_recovery_if_investigated_usd, ",
+        "recommended_disposition ",
+        "FROM gold_queue_scored"
+      ]
+    },
+    {
+      "name": "ds_dispositions",
+      "displayName": "Disposition mix",
+      "queryLines": [
+        "SELECT recommended_disposition, COUNT(*) AS case_count, ",
+        "SUM(projected_recovery_if_investigated_usd) AS recovery_usd ",
+        "FROM gold_disposition_recommendations GROUP BY recommended_disposition"
+      ]
+    },
+    {
+      "name": "ds_signals",
+      "displayName": "Signal frequency (high-risk)",
+      "queryLines": [
+        "SELECT f.signal AS signal, COUNT(DISTINCT f.payment_id) AS payment_count ",
+        "FROM raw_payment_fraud_flags f ",
+        "JOIN gold_open_queue q ON f.payment_id = q.payment_id ",
+        "WHERE q.risk_level = 'high' ",
+        "GROUP BY f.signal ORDER BY payment_count DESC"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "queue",
+      "displayName": "Payment Queue",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "p1-title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Sentinel Payment Integrity — Pre-Disbursement Prevention\n",
+                "**Della Okonkwo · Deputy Commissioner for Program Integrity.** A cross-agency fraud-match feed + eligibility-data refresh ~3 weeks ago surfaced a **spike of high-risk pre-disbursement payments** (red = highest improper-payment exposure). Each point of improper-payment rate prevented before funds move is **~$600M/yr**. This page tracks the queue, its exposure, and the prescribed disposition per payment — release, hold-for-verification, or refer-to-investigation."
+              ]
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 12, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi-exposure",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_risk", "fields": [{"name": "sum(improper_exposure_usd)", "expression": "SUM(`improper_exposure_usd`)"}], "disaggregated": false}}],
+            "spec": {"version": 2, "widgetType": "counter", "frame": {"showTitle": true, "title": "Improper-payment exposure"}, "encodings": {"value": {"fieldName": "sum(improper_exposure_usd)", "displayName": "Exposure", "format": {"type": "number-currency", "currencyCode": "USD", "abbreviation": "compact", "decimalPlaces": {"type": "max", "places": 1}}}}}
+          },
+          "position": {"x": 0, "y": 3, "width": 3, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi-flagged",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_risk", "fields": [{"name": "sum(flagged_count)", "expression": "SUM(`flagged_count`)"}], "disaggregated": false}}],
+            "spec": {"version": 2, "widgetType": "counter", "frame": {"showTitle": true, "title": "Flagged payments"}, "encodings": {"value": {"fieldName": "sum(flagged_count)", "displayName": "Flagged", "format": {"type": "number", "decimalPlaces": {"type": "exact", "places": 0}}}}}
+          },
+          "position": {"x": 3, "y": 3, "width": 3, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi-recovery",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_risk", "fields": [{"name": "sum(recovery_usd)", "expression": "SUM(`recovery_usd`)"}], "disaggregated": false}}],
+            "spec": {"version": 2, "widgetType": "counter", "frame": {"showTitle": true, "title": "Projected recovery if investigated"}, "encodings": {"value": {"fieldName": "sum(recovery_usd)", "displayName": "Recovery", "format": {"type": "number-currency", "currencyCode": "USD", "abbreviation": "compact", "decimalPlaces": {"type": "max", "places": 1}}}}}
+          },
+          "position": {"x": 6, "y": 3, "width": 3, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi-queue-depth",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_risk", "fields": [{"name": "sum(queue_depth)", "expression": "SUM(`queue_depth`)"}], "disaggregated": false}}],
+            "spec": {"version": 2, "widgetType": "counter", "frame": {"showTitle": true, "title": "Flagged queue count"}, "encodings": {"value": {"fieldName": "sum(queue_depth)", "displayName": "Count", "format": {"type": "number", "decimalPlaces": {"type": "exact", "places": 0}}}}}
+          },
+          "position": {"x": 9, "y": 3, "width": 3, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "bar-exposure-by-program",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_risk", "fields": [{"name": "program", "expression": "`program`"}, {"name": "sum(improper_exposure_usd)", "expression": "SUM(`improper_exposure_usd`)"}, {"name": "risk_level", "expression": "`risk_level`"}], "disaggregated": false}}],
+            "spec": {"version": 3, "widgetType": "bar", "frame": {"showTitle": true, "title": "Improper-payment exposure by program (stacked by risk)"}, "encodings": {"x": {"fieldName": "program", "scale": {"type": "categorical"}, "displayName": "Program"}, "y": {"fieldName": "sum(improper_exposure_usd)", "scale": {"type": "quantitative"}, "displayName": "Improper exposure ($)"}, "color": {"fieldName": "risk_level", "scale": {"type": "categorical", "mappings": [{"value": "high", "color": "#E5484D"}, {"value": "moderate", "color": "#FFB020"}, {"value": "low", "color": "#3C6997"}]}, "displayName": "Risk level"}}}
+          },
+          "position": {"x": 0, "y": 6, "width": 6, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "bar-flagged-by-risk",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_risk", "fields": [{"name": "risk_level", "expression": "`risk_level`"}, {"name": "sum(flagged_count)", "expression": "SUM(`flagged_count`)"}], "disaggregated": false}}],
+            "spec": {"version": 3, "widgetType": "bar", "frame": {"showTitle": true, "title": "Flagged case count by risk level"}, "encodings": {"x": {"fieldName": "risk_level", "scale": {"type": "categorical"}, "displayName": "Risk level"}, "y": {"fieldName": "sum(flagged_count)", "scale": {"type": "quantitative"}, "displayName": "Flagged cases"}, "color": {"fieldName": "risk_level", "scale": {"type": "categorical", "mappings": [{"value": "high", "color": "#E5484D"}, {"value": "moderate", "color": "#FFB020"}, {"value": "low", "color": "#3C6997"}]}, "displayName": "Risk level"}}}
+          },
+          "position": {"x": 6, "y": 6, "width": 6, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "queue-table",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_queue", "fields": [{"name": "payment_id", "expression": "`payment_id`"}, {"name": "program", "expression": "`program`"}, {"name": "risk_level", "expression": "`risk_level`"}, {"name": "n_signals", "expression": "`n_signals`"}, {"name": "signal_list", "expression": "`signal_list`"}, {"name": "recommended_disposition", "expression": "`recommended_disposition`"}, {"name": "improper_payment_exposure_usd", "expression": "`improper_payment_exposure_usd`"}, {"name": "projected_recovery_if_investigated_usd", "expression": "`projected_recovery_if_investigated_usd`"}], "disaggregated": true, "orders": [{"direction": "DESC", "expression": "`improper_payment_exposure_usd`"}]}}],
+            "spec": {"version": 2, "widgetType": "table", "frame": {"showTitle": true, "title": "Payment Queue — priority-ranked by improper-payment exposure (hero PAY-0000214 near top)"}, "encodings": {"columns": [
+              {"fieldName": "payment_id", "displayName": "Payment"},
+              {"fieldName": "program", "displayName": "Program"},
+              {"fieldName": "risk_level", "displayName": "Risk", "style": {"type": "basic", "rules": [{"condition": {"operand": {"type": "data-value", "value": "high"}, "operator": "="}, "backgroundColor": {"hex": "#E5484D"}}, {"condition": {"operand": {"type": "data-value", "value": "moderate"}, "operator": "="}, "backgroundColor": {"hex": "#FFB020"}}, {"condition": {"operand": {"type": "data-value", "value": "low"}, "operator": "="}, "backgroundColor": {"hex": "#3C6997"}}]}},
+              {"fieldName": "n_signals", "displayName": "# Signals"},
+              {"fieldName": "signal_list", "displayName": "Signals"},
+              {"fieldName": "recommended_disposition", "displayName": "Recommended disposition"},
+              {"fieldName": "improper_payment_exposure_usd", "displayName": "Improper exposure", "format": {"type": "number-currency", "currencyCode": "USD", "decimalPlaces": {"type": "exact", "places": 0}}},
+              {"fieldName": "projected_recovery_if_investigated_usd", "displayName": "Projected recovery", "format": {"type": "number-currency", "currencyCode": "USD", "decimalPlaces": {"type": "exact", "places": 0}}}
+            ]}}
+          },
+          "position": {"x": 0, "y": 12, "width": 12, "height": 8}
+        }
+      ]
+    },
+    {
+      "name": "analytics",
+      "displayName": "Analytics",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "p2-title",
+            "multilineTextboxSpec": {
+              "lines": [
+                "# Deep Dive — Signals, Dispositions & Recovery\n",
+                "Which fraud signals drive the high-risk cases? What disposition is prescribed across the queue, and where's the recovery potential? Investigation carries the highest recovery per case; hold-for-verification clears the bulk of the queue with a short delay."
+              ]
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 12, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "bar-signal-frequency",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_signals", "fields": [{"name": "signal", "expression": "`signal`"}, {"name": "sum(payment_count)", "expression": "SUM(`payment_count`)"}], "disaggregated": false, "orders": [{"direction": "DESC", "expression": "SUM(`payment_count`)"}]}}],
+            "spec": {"version": 3, "widgetType": "bar", "frame": {"showTitle": true, "title": "Signal frequency in high-risk cases"}, "encodings": {"x": {"fieldName": "sum(payment_count)", "scale": {"type": "quantitative"}, "displayName": "Payments"}, "y": {"fieldName": "signal", "scale": {"type": "categorical"}, "displayName": "Signal"}, "color": {"fieldName": "signal", "scale": {"type": "categorical"}, "displayName": "Signal"}}}
+          },
+          "position": {"x": 0, "y": 3, "width": 4, "height": 7}
+        },
+        {
+          "widget": {
+            "name": "bar-disposition-mix",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_dispositions", "fields": [{"name": "recommended_disposition", "expression": "`recommended_disposition`"}, {"name": "sum(case_count)", "expression": "SUM(`case_count`)"}], "disaggregated": false}}],
+            "spec": {"version": 3, "widgetType": "bar", "frame": {"showTitle": true, "title": "Disposition recommendation mix"}, "encodings": {"x": {"fieldName": "recommended_disposition", "scale": {"type": "categorical"}, "displayName": "Disposition"}, "y": {"fieldName": "sum(case_count)", "scale": {"type": "quantitative"}, "displayName": "Cases"}, "color": {"fieldName": "recommended_disposition", "scale": {"type": "categorical", "mappings": [{"value": "refer_to_investigation", "color": "#E5484D"}, {"value": "hold_for_verification", "color": "#FFB020"}, {"value": "release", "color": "#3C6997"}]}, "displayName": "Disposition"}}}
+          },
+          "position": {"x": 4, "y": 3, "width": 4, "height": 7}
+        },
+        {
+          "widget": {
+            "name": "top-recovery-table",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_queue", "fields": [{"name": "payment_id", "expression": "`payment_id`"}, {"name": "program", "expression": "`program`"}, {"name": "risk_level", "expression": "`risk_level`"}, {"name": "n_signals", "expression": "`n_signals`"}, {"name": "improper_payment_exposure_usd", "expression": "`improper_payment_exposure_usd`"}, {"name": "projected_recovery_if_investigated_usd", "expression": "`projected_recovery_if_investigated_usd`"}, {"name": "recommended_disposition", "expression": "`recommended_disposition`"}], "disaggregated": true, "orders": [{"direction": "DESC", "expression": "`projected_recovery_if_investigated_usd`"}]}}],
+            "spec": {"version": 2, "widgetType": "table", "frame": {"showTitle": true, "title": "Top flagged payments by recovery potential"}, "encodings": {"columns": [
+              {"fieldName": "payment_id", "displayName": "Payment"},
+              {"fieldName": "program", "displayName": "Program"},
+              {"fieldName": "risk_level", "displayName": "Risk"},
+              {"fieldName": "n_signals", "displayName": "# Signals"},
+              {"fieldName": "improper_payment_exposure_usd", "displayName": "Improper exposure", "format": {"type": "number-currency", "currencyCode": "USD", "decimalPlaces": {"type": "exact", "places": 0}}},
+              {"fieldName": "projected_recovery_if_investigated_usd", "displayName": "Projected recovery", "format": {"type": "number-currency", "currencyCode": "USD", "decimalPlaces": {"type": "exact", "places": 0}}},
+              {"fieldName": "recommended_disposition", "displayName": "Disposition"}
+            ]}}
+          },
+          "position": {"x": 8, "y": 3, "width": 4, "height": 7}
+        },
+        {
+          "widget": {
+            "name": "scatter-risk-recovery",
+            "queries": [{"name": "main_query", "query": {"datasetName": "ds_queue", "fields": [{"name": "n_signals", "expression": "`n_signals`"}, {"name": "projected_recovery_if_investigated_usd", "expression": "`projected_recovery_if_investigated_usd`"}, {"name": "payment_amount_usd", "expression": "`payment_amount_usd`"}, {"name": "risk_level", "expression": "`risk_level`"}, {"name": "payment_id", "expression": "`payment_id`"}], "disaggregated": true}}],
+            "spec": {"version": 3, "widgetType": "scatter", "frame": {"showTitle": true, "title": "Signals vs. recovery potential (bubble = payment amount)"}, "encodings": {"x": {"fieldName": "n_signals", "scale": {"type": "quantitative"}, "displayName": "# Signals"}, "y": {"fieldName": "projected_recovery_if_investigated_usd", "scale": {"type": "quantitative"}, "displayName": "Projected recovery ($)"}, "size": {"fieldName": "payment_amount_usd", "scale": {"type": "quantitative"}, "displayName": "Payment amount"}, "color": {"fieldName": "risk_level", "scale": {"type": "categorical", "mappings": [{"value": "high", "color": "#E5484D"}, {"value": "moderate", "color": "#FFB020"}, {"value": "low", "color": "#3C6997"}]}, "displayName": "Risk level"}}}
+          },
+          "position": {"x": 0, "y": 10, "width": 12, "height": 6}
+        }
+      ]
+    },
+    {
+      "name": "filters",
+      "displayName": "Filters",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "filter-program",
+            "queries": [
+              {"name": "f_program_risk", "query": {"datasetName": "ds_risk", "fields": [{"name": "program", "expression": "`program`"}], "disaggregated": false}},
+              {"name": "f_program_queue", "query": {"datasetName": "ds_queue", "fields": [{"name": "program", "expression": "`program`"}], "disaggregated": false}}
+            ],
+            "spec": {"version": 2, "widgetType": "filter-multi-select", "frame": {"showTitle": true, "title": "Program"}, "encodings": {"fields": [{"fieldName": "program", "queryName": "f_program_risk"}, {"fieldName": "program", "queryName": "f_program_queue"}]}}
+          },
+          "position": {"x": 0, "y": 0, "width": 4, "height": 2}
+        },
+        {
+          "widget": {
+            "name": "filter-risk",
+            "queries": [
+              {"name": "f_risk_risk", "query": {"datasetName": "ds_risk", "fields": [{"name": "risk_level", "expression": "`risk_level`"}], "disaggregated": false}},
+              {"name": "f_risk_queue", "query": {"datasetName": "ds_queue", "fields": [{"name": "risk_level", "expression": "`risk_level`"}], "disaggregated": false}}
+            ],
+            "spec": {"version": 2, "widgetType": "filter-multi-select", "frame": {"showTitle": true, "title": "Risk level"}, "encodings": {"fields": [{"fieldName": "risk_level", "queryName": "f_risk_risk"}, {"fieldName": "risk_level", "queryName": "f_risk_queue"}]}}
+          },
+          "position": {"x": 4, "y": 0, "width": 4, "height": 2}
+        },
+        {
+          "widget": {
+            "name": "filter-disposition",
+            "queries": [
+              {"name": "f_disp_queue", "query": {"datasetName": "ds_queue", "fields": [{"name": "recommended_disposition", "expression": "`recommended_disposition`"}], "disaggregated": false}}
+            ],
+            "spec": {"version": 2, "widgetType": "filter-multi-select", "frame": {"showTitle": true, "title": "Recommended disposition"}, "encodings": {"fields": [{"fieldName": "recommended_disposition", "queryName": "f_disp_queue"}]}}
+          },
+          "position": {"x": 8, "y": 0, "width": 4, "height": 2}
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {"light": "#F5F7FB", "dark": "#0F1419"},
+      "widgetBackgroundColor": {"light": "#FFFFFF", "dark": "#161B22"},
+      "widgetBorderColor": {"light": "#FFFFFF", "dark": "#161B22"},
+      "fontColor": {"light": "#1F2530", "dark": "#E8ECF0"},
+      "selectionColor": {"light": "#4F7CE3", "dark": "#8ACAFF"},
+      "visualizationColors": ["#094074", "#3C6997", "#5ADBFF", "#FFB020", "#E5484D"],
+      "widgetHeaderAlignment": "LEFT"
+    },
+    "genieSpace": {
+      "isEnabled": true,
+      "overrideId": "01f1a23c173d1fbdaff68c68b0cee3c4",
+      "enablementMode": "ENABLED"
+    }
+  }
+}

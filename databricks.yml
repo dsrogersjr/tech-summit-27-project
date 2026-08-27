@@ -1,0 +1,321 @@
+# Databricks Asset Bundle — Sentinel: Improper-Payment Prevention (Pre-Disbursement).
+#
+# Re-creates the whole demo on ANY workspace from scratch. What it provisions:
+#   schema + raw_data volume + SDP pipeline + AI/BI dashboard + the Payment
+#   Integrity App shell, created by `bundle deploy`; then a setup job fills them
+#   in on `bundle run`:
+#     generate_data → run_pipeline → deploy_metric_view + deploy_genie
+#     → grant_app_uc → export_resources (exits a JSON manifest of every ID).
+#
+# This demo's disposition recommendation is a PIPELINE HEURISTIC (built in the
+# SDP gold layer), not an ML model — so there is NO ML training task, no model
+# serving, no Knowledge Assistant, and no Multi-Agent Supervisor. The app's data
+# tool is the Genie space, used directly.
+#
+# ── 5-command deploy (the user runs these; authoring does NOT bundle-deploy) ──
+#   1. ./app/scripts/lakebase_setup_db.sh --db-name dbgen_sentinel_ipp
+#   2. databricks bundle deploy --var catalog=… --var schema=…
+#   3. databricks bundle run sentinel_setup --var …
+#   4. ./app/scripts/lakebase_grant_app_credential.sh --app-name dbgen-sentinel-ipp --project-id dbdemos-asset-generator --db-name dbgen_sentinel_ipp
+#   5. ./app/scripts/finalize_app.sh
+#
+# Why the app env is finalized OUTSIDE the bundle (steps 3+5): the Genie space
+# id only exists AFTER the setup job's SDK task runs, so the bundle can't know it
+# at `deploy` time. export_resources exits a JSON with every ID; finalize_app.sh
+# reads it back and writes app.yaml's env.
+#
+# ⚠️ NEVER `databricks apps update --json` a deployed app out of band — `update`
+#    replaces the whole app spec and silently drops the `resources` bindings
+#    (→ Lakebase SP role deprovisioned → Postgres auth fails). Change app config
+#    ONLY here (+ redeploy) or in app.yaml (+ finalize).
+
+bundle:
+  name: sentinel-ipp
+
+variables:
+  catalog:
+    description: "Unity Catalog for Sentinel resources"
+    default: solution_builder
+  schema:
+    description: "Schema within the catalog (created by this bundle)"
+    default: sentinel_ipp
+
+  # ── App + Lakebase ─────────────────────────────────────────────────────
+  app_name:
+    description: "Workspace app name (must be unique per workspace)"
+    default: "dbgen-sentinel-ipp"
+  lakebase_project_id:
+    description: "Lakebase project — reused if it already exists"
+    default: "sentenel-tech-summit-27"
+  lakebase_branch_id:
+    description: "Lakebase branch within the project"
+    default: "production"
+  lakebase_database_name:
+    description: "Postgres database name (convention: dbgen_<demo>)"
+    default: "sentenel_tech_summit_27"
+  lakebase_database_id:
+    description: |
+      Lakebase database resource ID — the slug in the App's `postgres` binding
+      path. Convention: `db-` + database_name with underscores → hyphens.
+      Created by app/scripts/lakebase_setup_db.sh.
+    default: "db-sentenel-tech-summit-27"
+
+  # NOTE: the app's runtime env vars are NOT defined here. finalize_app.sh
+  # assembles them into app.yaml after the setup job (it harvests
+  # export_resources' exit JSON — the Genie id the bundle can't know at deploy
+  # time). One source of truth for app env.
+
+# Build the app locally before sync — produces app/dist/server.js +
+# app/client/dist/ (both gitignored). sync.include whitelists them past
+# .gitignore so the Apps container has them.
+artifacts:
+  default:
+    build: ./app/scripts/build-app.sh
+
+sync:
+  include:
+    - "transformation/**"
+    - "data_generation/**"
+    - "src/**"
+    - "genie_space.json"
+    - "dashboard.lvdash.json"
+    - "app/dist/**"          # tsdown output (server bundle)
+    - "app/client/dist/**"   # vite output (client bundle)
+    - "app/drizzle/**"       # generated Drizzle SQL migrations (build-app.sh
+                             # runs db:generate → runMigrations() reads them at boot)
+  # node_modules (hundreds of MB) otherwise gets dragged into the Apps
+  # deployment zip and "Preparing source code" stalls for minutes. The container
+  # runs its own `npm install` against the shipped lockfile.
+  # ⚠️ app/package.json + app/package-lock.json must NOT be gitignored — the
+  #    container needs a deps file or it crashes at boot (ERR_MODULE_NOT_FOUND).
+  exclude:
+    - "app/node_modules/**"
+    - "app/.venv/**"
+    - "app/.env"
+    - "app/.env.*"
+    - "app/.preview.pgid"
+    - "app/.preview.server.pid"
+    - "app/.DS_Store"
+    - "app/playwright-report/**"
+    - "app/test-results/**"
+    - "app/tests/**"
+
+targets:
+  dev:
+    default: true
+    mode: development   # prefixes resource names with `[dev <user>]` + the
+                        # schema with `dev_<user>_`. Pass resolved names
+                        # downstream via ${resources.schemas.demo_schema.name}
+                        # (NOT ${var.schema}) so tasks hit the prefixed schema.
+  prod:
+    mode: production
+
+resources:
+  # ──────────────────────────────────────────────────────────────────────────
+  # SQL Warehouse — serverless, Photon-enabled, powers dashboard + Genie + app.
+  # ──────────────────────────────────────────────────────────────────────────
+  sql_warehouses:
+    sentinel_warehouse:
+      name: "[${bundle.target}] Sentinel Warehouse"
+      cluster_size: "2X-Small"
+      enable_serverless_compute: true
+      enable_photon: true
+      auto_stop_mins: 10
+      max_num_clusters: 1
+      min_num_clusters: 1
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Schema + volume. No `grants:` blocks — grant the app SP via the grant_app_uc
+  # task instead (targets the SP client_id; a `users`-group grant fails on some
+  # workspaces with "Could not find principal").
+  # ──────────────────────────────────────────────────────────────────────────
+  schemas:
+    demo_schema:
+      name: ${var.schema}
+      catalog_name: ${var.catalog}
+      comment: "Sentinel improper-payment prevention: synthetic payment + fraud-signal data, silver/gold pipeline tables, and the mv_payment_risk metric view."
+
+  volumes:
+    raw_data:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.demo_schema.name}
+      name: "raw_data"
+      volume_type: "MANAGED"
+      comment: "Raw parquet landing zone — generate_data.py writes here; the SDP silver reads it via read_files()."
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # SDP pipeline — raw passthrough → silver (flagged payments + case outcomes)
+  # → gold (open queue + prescribed disposition + gold_queue_scored). The gold
+  # heuristic produces the release / hold_for_verification / refer_to_investigation
+  # recommendation the dashboard, Genie, and app all read.
+  # ──────────────────────────────────────────────────────────────────────────
+  pipelines:
+    sentinel_pipeline:
+      name: "[${bundle.target}] Sentinel Payments Pipeline"
+      catalog: ${resources.schemas.demo_schema.catalog_name}
+      target: ${resources.schemas.demo_schema.name}
+      serverless: true
+      photon: true
+      development: true
+      channel: current
+      configuration:
+        # SDP SQL read_files() paths interpolate these. Keep in sync with the
+        # deploy target — dev mode's dev_<user>_ schema prefix means the pipeline
+        # reads /Volumes/<catalog>/<resolved-schema>/raw_data/…
+        catalog: ${resources.schemas.demo_schema.catalog_name}
+        schema: ${resources.schemas.demo_schema.name}
+        snapshot_date: "2026-07-31"
+      libraries:
+        - file:
+            path: ./transformation/00_raw.sql
+        - file:
+            path: ./transformation/01_silver.sql
+        - file:
+            path: ./transformation/02_gold.sql
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # AI/BI dashboard — dataset_catalog / dataset_schema rebind the embedded
+  # queries per-target (datasets ship with bare table names). Requires CLI v0.283.0+.
+  # ──────────────────────────────────────────────────────────────────────────
+  dashboards:
+    sentinel_dashboard:
+      display_name: "[${bundle.target}] Sentinel Payment Integrity"
+      file_path: ./dashboard.lvdash.json
+      warehouse_id: ${resources.sql_warehouses.sentinel_warehouse.id}
+      dataset_catalog: ${resources.schemas.demo_schema.catalog_name}
+      dataset_schema: ${resources.schemas.demo_schema.name}
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Payment Integrity App — examiner console (Visualize → Assist → Act) on
+  # Lakebase, fronted by Genie. Plain-value env (catalog/schema/dashboard_id/
+  # genie_space_id) is written into app.yaml by finalize_app.sh after the setup
+  # job; the binding-derived vars come via app.yaml `valueFrom:` entries.
+  # ──────────────────────────────────────────────────────────────────────────
+  apps:
+    sentinel_app:
+      name: ${var.app_name}
+      description: "Sentinel Payment Integrity — pre-disbursement improper-payment prevention console."
+      source_code_path: ./app
+      lifecycle:
+        prevent_destroy: true
+      # OBO scopes for the user token. API scope STRINGS (differ from app.yaml's
+      # user_authorization.scopes vocabulary — set both).
+      user_api_scopes:
+        - serving.serving-endpoints   # agent LLM via /serving-endpoints/responses
+        - ai-gateway                  # ⚠️ REQUIRED — the Responses API routes
+                                      # through AI Gateway; without it the OBO
+                                      # token is rejected 403 even with serving.
+        - dashboards.genie            # ask_data → the Sentinel Genie space
+        - sql                         # SQL warehouse (analytics charts)
+        - sql.statement-execution
+        - postgres                    # Lakebase
+        - catalog.catalogs:read
+        - catalog.schemas:read
+        - catalog.tables:read
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${resources.sql_warehouses.sentinel_warehouse.id}
+            permission: CAN_USE
+        # No genie_space binding: the Genie space is created by the setup job's
+        # deploy_genie task (its id isn't knowable at deploy time), and the app
+        # reaches Genie via the user's OBO `dashboards.genie` scope, not an
+        # app-SP binding.
+        - name: postgres
+          postgres:
+            branch: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}
+            database: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}/databases/${var.lakebase_database_id}
+            permission: CAN_CONNECT_AND_CREATE
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Setup job — everything that runs AFTER `bundle deploy` creates the shells.
+  # Tasks pass catalog/schema via base_parameters using the RESOLVED schema name
+  # (dev-mode prefix applied). Cross-task IDs flow via {{tasks.<key>.values.<key>}}.
+  # ──────────────────────────────────────────────────────────────────────────
+  jobs:
+    sentinel_setup:
+      name: "[${bundle.target}] Sentinel Setup"
+      description: "data → pipeline → metric view + genie → grant app SP → export IDs"
+      tasks:
+        - task_key: generate_data
+          notebook_task:
+            notebook_path: ./data_generation/generate_data.py
+            base_parameters:
+              catalog: ${resources.schemas.demo_schema.catalog_name}
+              schema:  ${resources.schemas.demo_schema.name}
+          environment_key: sdk_default
+
+        - task_key: run_pipeline
+          depends_on: [{ task_key: generate_data }]
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.sentinel_pipeline.id}
+
+        # Metric view has no PySpark API — this notebook runs the
+        # CREATE OR REPLACE VIEW … WITH METRICS LANGUAGE YAML DDL inline, over
+        # the gold_queue_scored table the pipeline built.
+        - task_key: deploy_metric_view
+          depends_on: [{ task_key: run_pipeline }]
+          notebook_task:
+            notebook_path: ./src/metric_view/mv_payment_risk.py
+            base_parameters:
+              catalog: ${resources.schemas.demo_schema.catalog_name}
+              schema:  ${resources.schemas.demo_schema.name}
+          environment_key: sdk_default
+
+        # Genie reads the metric view + gold tables — must run after the MV so
+        # its table-identifier validation passes.
+        - task_key: deploy_genie
+          depends_on: [{ task_key: deploy_metric_view }]
+          notebook_task:
+            notebook_path: ./src/deploy/deploy_genie.py
+            base_parameters:
+              catalog:      ${resources.schemas.demo_schema.catalog_name}
+              schema:       ${resources.schemas.demo_schema.name}
+              warehouse_id: ${resources.sql_warehouses.sentinel_warehouse.id}
+          environment_key: sdk_latest
+
+        # Grant the app SP UC read privileges (USE_CATALOG/SCHEMA, SELECT,
+        # READ_VOLUME). Without these the app's boot sync + /api/config hit
+        # INSUFFICIENT_PERMISSIONS. (Distinct from lakebase_grant_app_credential.sh,
+        # which grants on the Postgres plane.)
+        - task_key: grant_app_uc
+          depends_on: [{ task_key: run_pipeline }]
+          notebook_task:
+            notebook_path: ./src/deploy/grant_app_uc.py
+            base_parameters:
+              catalog:  ${resources.schemas.demo_schema.catalog_name}
+              schema:   ${resources.schemas.demo_schema.name}
+              app_name: ${var.app_name}
+          environment_key: sdk_latest
+
+        # Final task: exit a JSON manifest of every resolved ID. finalize_app.sh
+        # reads it back via get-run-output.
+        - task_key: export_resources
+          depends_on: [{ task_key: deploy_genie }, { task_key: grant_app_uc }]
+          notebook_task:
+            notebook_path: ./src/deploy/export_resources.py
+            base_parameters:
+              app_name:       ${var.app_name}
+              catalog:        ${resources.schemas.demo_schema.catalog_name}
+              schema:         ${resources.schemas.demo_schema.name}
+              dashboard_id:   ${resources.dashboards.sentinel_dashboard.id}
+              pipeline_id:    ${resources.pipelines.sentinel_pipeline.id}
+              warehouse_id:   ${resources.sql_warehouses.sentinel_warehouse.id}
+              genie_space_id: "{{tasks.deploy_genie.values.genie_space_id}}"
+          environment_key: sdk_latest
+
+      # Serverless environments. `client: "4"` is the standard tier; the Genie
+      # API needs databricks-sdk>=0.114.0.
+      environments:
+        - environment_key: sdk_default
+          spec:
+            client: "4"
+            dependencies:
+              - numpy
+              - pandas
+              - faker
+        - environment_key: sdk_latest
+          spec:
+            client: "4"
+            dependencies:
+              - "databricks-sdk>=0.114.0"
