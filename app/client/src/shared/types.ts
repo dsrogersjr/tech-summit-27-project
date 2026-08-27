@@ -63,7 +63,7 @@ export type PaymentRow = {
 };
 
 /** One option in the model's ranked disposition list
- *  (JSONB on `disposition_recommendations.action_ranking`). Each option carries
+ *  (JSONB on `dispo_recs.action_ranking`). Each option carries
  *  projected recovery $ + cost + net value, so the drawer + agent can render the
  *  ranked list and do the arithmetic what-if (recover vs. citizen-delay cost). */
 export type DispositionOption = {

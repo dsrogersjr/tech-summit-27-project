@@ -149,7 +149,7 @@ function makeTools(ctx: AgentContext): Tool[] {
   });
 
   // ── rank_dispositions — TRAINEE BUILDS (Build 2 · Assist). STUB. ────────
-  // TODO — BUILD 2 (trainee): implement this. Read app.disposition_recommendations
+  // TODO — BUILD 2 (trainee): implement this. Read app.dispo_recs
   // for {payment_id} and return the model's recommended_disposition,
   // predicted_recovery_usd, predicted_cost_usd, and the full action_ranking
   // (all three dispositions with predicted recovery $ + net $ + cost). This is the
@@ -160,7 +160,7 @@ function makeTools(ctx: AgentContext): Tool[] {
   const rankRecoveryMoves = tool({
     name: 'rank_dispositions',
     description:
-      "Read the model's ranked dispositions for a payment from Lakebase app.disposition_recommendations: the recommended disposition, its predicted recovery $ + net value, and the full ranking of all three options (release / hold_for_verification / refer_to_investigation) with each option's hold hours, cost, predicted recovery $ and net $. Read-only. Quote these in the draft; do the what-if (recovery vs. citizen-delay cost) arithmetically from the ranking.",
+      "Read the model's ranked dispositions for a payment from Lakebase app.dispo_recs: the recommended disposition, its predicted recovery $ + net value, and the full ranking of all three options (release / hold_for_verification / refer_to_investigation) with each option's hold hours, cost, predicted recovery $ and net $. Read-only. Quote these in the draft; do the what-if (recovery vs. citizen-delay cost) arithmetically from the ranking.",
     parameters: z.object({
       payment_id: z.string().describe('Payment id, e.g. PAY-0000214.'),
     }),
