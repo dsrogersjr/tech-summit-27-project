@@ -1,0 +1,15 @@
+.DS_Store
+.env
+.env.local
+.env.*
+!.env.example
+!.env.template
+node_modules/
+.venv/
+dist/
+client/dist/
+*.tsbuildinfo
+playwright-report/
+test-results/
+.databrickscfg
+.preview.pgid

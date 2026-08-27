@@ -1,0 +1,3 @@
+-- Sentinel gold layer as plain owned Delta tables (CTAS), built directly on the
+-- registered raw_* tables. Avoids SDP materialized-view backing-table ownership
+-- churn on the shared catalog. Run against the SQL warehouse (statements split).
