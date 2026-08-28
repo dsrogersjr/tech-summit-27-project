@@ -22,6 +22,14 @@ commit `5fe7265`): `find_flag`, `rank_dispositions` (Assist) and
 | Hero question + linked record IDs (decision chain) | `hero_question.txt` | PAY-0000202 → `dispo_recs` rec → `case_actions` (id 37f0ba5e-…) → conversation `0e43ee92-…` → closed-loop view. | ✅ real IDs |
 | Git history (`git log --graph --oneline --decorate --all`) — layer-by-layer build on dev off main | `git_history.txt` | Real graph: `main` ← `dev` (submission1 + DAB synced tables) ← `feat/act-closed-loop-case-action` (the Assist+Act implementation `5fe7265`). | ✅ real |
 
+## Cross-tool: reads from and acts across what would otherwise be separate tools
+
+| Evidence | File | How it's satisfied | Real/live |
+|---|---|---|---|
+| Build construct — one app, multiple tool planes | `cross_tool_evidence.md` | The agent's tools span distinct backends (`ask_data`→Genie/lakehouse, `find_flag`/`rank_dispositions`/`execute_case_action`→Lakebase), and the app's OAuth scopes cover model-serving, Genie, SQL warehouse, Lakebase, and Unity Catalog. Cites `caseops.ts`, `app.yaml`, `databricks.yml`. | ✅ from source |
+| Reads across tools (execution) | `cross_tool_flow.jsonl` | One live threaded conversation: a real Genie `ask_data` call (governed-lakehouse analytics) **and** `find_flag`/`rank_dispositions` (Lakebase OLTP) — each `tool_call` tagged `genie` vs `lakebase-read`. `find_flag` surfaced PAY-0000202's recorded disposition. | ✅ live (Genie + Lakebase) |
+| Acts across tools | `writeback_table.json` / `assist_log.jsonl` | The `execute_case_action` Lakebase write recorded PAY-0000202's approved disposition; reflected on the next read (`view_result.json`). | ✅ live write |
+
 ## Notes
 - `assist_log.jsonl` is a real live run against the Databricks Responses API
   (`databricks-gpt-5-4`) — the two turns are the model's actual output, with the
