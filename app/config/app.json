@@ -20,10 +20,12 @@
   "masEndpointName": "${MAS_ENDPOINT_NAME:}",
   "genieSpaceId":    "${GENIE_SPACE_ID:}",
 
-  // Agent LLM. Needs the Responses API (openai/v1/responses). databricks-gpt-5-4
-  // is the baseline; a newer GPT endpoint with /responses enabled works too.
-  // Non-Responses models (Claude etc.) 400 BAD_REQUEST.
-  "agentModel": "databricks-gpt-5-4",
+  // Agent LLM — routed through the governed AI Gateway endpoint
+  // `sentinel-agent-llm` (external-model chat proxy of the FM, with an inference
+  // table + usage tracking + guardrails). The agent uses the chat-completions API
+  // (see setOpenAIAPI('chat_completions') in caseops.ts). Override via
+  // SERVING_ENDPOINT; falls back to the governed endpoint name.
+  "agentModel": "${SERVING_ENDPOINT:sentinel-agent-llm}",
 
   // MLflow trace path. Empty → chat shows "Trace pending…". Auto-created at boot.
   "mlflowExperimentId": "",

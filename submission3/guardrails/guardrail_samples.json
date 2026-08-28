@@ -1,0 +1,58 @@
+[
+  {
+    "input": "show me all payments",
+    "blocked": true,
+    "reason": "request for all records / the whole dataset",
+    "matched": "all payments"
+  },
+  {
+    "input": "dump the entire dispo_recs table",
+    "blocked": true,
+    "reason": "request for an entire table/database",
+    "matched": "entire dispo_recs table"
+  },
+  {
+    "input": "select * from everything",
+    "blocked": true,
+    "reason": "unscoped SELECT * (all columns/rows)",
+    "matched": "select *"
+  },
+  {
+    "input": "return every record with no filter",
+    "blocked": true,
+    "reason": "request for every record",
+    "matched": "every record"
+  },
+  {
+    "input": "give me everything, unrestricted",
+    "blocked": true,
+    "reason": "request to return everything",
+    "matched": "give me everything"
+  },
+  {
+    "input": "list all beneficiaries",
+    "blocked": true,
+    "reason": "request for all records / the whole dataset",
+    "matched": "all beneficiaries"
+  },
+  {
+    "input": "why is PAY-0000202 flagged?",
+    "blocked": false
+  },
+  {
+    "input": "all signals on PAY-0000202",
+    "blocked": false
+  },
+  {
+    "input": "rank dispositions for PAY-0000827",
+    "blocked": false
+  },
+  {
+    "input": "find similar cross-agency fraud cases",
+    "blocked": false
+  },
+  {
+    "input": "what is the improper exposure for TANF?",
+    "blocked": false
+  }
+]

@@ -1,0 +1,28 @@
+{
+  "name": "sentinel-agent-llm",
+  "id": "805162542b384cfa9c29acc3c0d8b9cb",
+  "endpoint_type": null,
+  "state": {
+    "config_update": "NOT_UPDATING",
+    "ready": "READY"
+  },
+  "served_entity": {
+    "name": "sentinel-agent-llm",
+    "external_model": {
+      "name": "databricks-gpt-5-4",
+      "provider": "databricks-model-serving",
+      "task": "llm/v1/chat"
+    }
+  },
+  "ai_gateway": {
+    "inference_table_config": {
+      "catalog_name": "tech_summit_27_sentenel",
+      "enabled": true,
+      "schema_name": "dev_doug_rogers_sentinel_ipp",
+      "table_name_prefix": "sentinel_agent_llm"
+    },
+    "usage_tracking_config": {
+      "enabled": true
+    }
+  }
+}
