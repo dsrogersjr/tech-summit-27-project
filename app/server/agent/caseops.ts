@@ -569,10 +569,8 @@ export function buildAgent(ctx: AgentContext): Agent {
     // Custom AI guardrail: trip on broad "query all data" attempts (least-privilege).
     inputGuardrails: [queryAllDataGuardrail],
     modelSettings: {
-      reasoning: { effort: 'low', summary: 'auto' },
-      // Databricks' gateway doesn't fully support the Responses server-side
-      // state backend; stateless runs work fine.
-      store: false,
+      // GPT-5.4 chat completions reject function tools with reasoning enabled.
+      reasoning: { effort: 'none' },
     },
     instructions: `
 You are the program-integrity assistant for the Deputy Commissioner for Program
