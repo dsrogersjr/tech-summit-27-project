@@ -39,6 +39,7 @@ import {
   Agent,
   run,
   setDefaultOpenAIClient,
+  setOpenAIAPI,
   setTracingDisabled,
 } from '@openai/agents';
 import type { Tool } from '@openai/agents';
@@ -56,6 +57,7 @@ import {
   getRecommendation,
 } from '../db/queries/index.js';
 import { embedText } from './tools/embed.js';
+import { queryAllDataGuardrail, assertNotQueryAllData } from './guardrails.js';
 // The data-backend helpers. Both are config-driven and share the same
 // DataCallResult shape + ToolProgressEvent stream, so the `ask_data` tool
 // below can delegate to EITHER without the UI caring which powers it. This
@@ -123,10 +125,14 @@ function makeTools(ctx: AgentContext): Tool[] {
     }),
     execute: async ({ question }) =>
       mlflow.withSpan(
-        async () =>
-          ctx.masEndpointName
+        async () => {
+          // Guardrail: refuse broad "query all data" attempts before hitting
+          // the governed lakehouse (least-privilege; examiners work case-by-case).
+          assertNotQueryAllData(question);
+          return ctx.masEndpointName
             ? callMasEndpoint(ctx, ctx.masEndpointName, question)
-            : callGenieSpace(ctx, ctx.genieSpaceId, question),
+            : callGenieSpace(ctx, ctx.genieSpaceId, question);
+        },
         {
           name: 'ask_data',
           spanType: mlflow.SpanType.TOOL,
@@ -382,6 +388,8 @@ function makeTools(ctx: AgentContext): Tool[] {
     execute: async ({ query, limit }) =>
       mlflow.withSpan(
         async () => {
+          // Guardrail: refuse broad "query all data" attempts before retrieval.
+          assertNotQueryAllData(query);
           const k = limit && limit > 0 ? Math.min(limit, 25) : 5;
           const vec = await embedText(ctx, query);
           // vec is model-generated numbers (not user text); bind as a pgvector
@@ -534,9 +542,12 @@ export async function configureAgentsSdk(ctx: AgentContext): Promise<void> {
     },
   });
   setDefaultOpenAIClient(client);
-  // Responses API (the SDK's default — we leave setOpenAIAPI alone).
-  // Keep `agentModel` on `databricks-gpt-5-4` or a newer Responses-capable
-  // GPT (needs `openai/v1/responses`). Claude/non-Responses models 400.
+  // Route LLM requests through the governed AI Gateway endpoint
+  // `sentinel-agent-llm` (an external-model chat proxy of the FM, with an
+  // inference table + usage tracking + guardrails). That endpoint serves the
+  // chat-completions API (not the Responses API), so switch the Agents SDK to
+  // chat_completions; `agentModel` (ctx.model) is the governed endpoint name.
+  setOpenAIAPI('chat_completions');
   setTracingDisabled(true); // disable OpenAI's tracing backend; we use MLflow
 }
 
@@ -544,6 +555,8 @@ export function buildAgent(ctx: AgentContext): Agent {
   return new Agent({
     name: 'CaseOps',
     model: ctx.model,
+    // Custom AI guardrail: trip on broad "query all data" attempts (least-privilege).
+    inputGuardrails: [queryAllDataGuardrail],
     modelSettings: {
       reasoning: { effort: 'low', summary: 'auto' },
       // Databricks' gateway doesn't fully support the Responses server-side

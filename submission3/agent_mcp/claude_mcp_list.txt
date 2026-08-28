@@ -1,0 +1,3 @@
+Checking MCP server health…
+slack: dbexec repo run mcp start-single slack - ✔ Connected
+system-ai-slack: /Users/doug.rogers/.local/bin/ucode mcp-proxy --url https://fe-sandbox-tech-summit-27-doug.cloud.databricks.com/ai-gateway/mcp-services/system.ai.slack --host https://fe-sandbox-tech-summit-27-doug.cloud.databricks.com --profile fe-sandbox-tech-summit-27-doug - ✔ Connected

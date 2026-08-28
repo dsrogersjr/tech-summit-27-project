@@ -37,6 +37,8 @@ env:
     valueFrom: sql-warehouse
   - name: LAKEBASE_ENDPOINT
     valueFrom: postgres
+  - name: SERVING_ENDPOINT
+    valueFrom: serving-endpoint
   - name: DEMO_CATALOG
     value: "tech_summit_27_sentenel"
   - name: DEMO_SCHEMA

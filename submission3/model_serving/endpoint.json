@@ -1,0 +1,30 @@
+{
+  "name": "sentinel-agent-llm",
+  "id": "7b6c664b443b452aba178139e53061bd",
+  "endpoint_type": null,
+  "state": {
+    "config_update": "NOT_UPDATING",
+    "ready": "READY"
+  },
+  "budget_policy_id": null,
+  "budget_note": "None = the workspace DEFAULT budget policy (f3f67b92-\u2026, tagged databricks-default-policy:true) auto-applies to this serverless usage; the default policy is not explicitly pinnable.",
+  "served_entity": {
+    "name": "sentinel-agent-llm",
+    "external_model": {
+      "name": "databricks-gpt-5-4",
+      "provider": "databricks-model-serving",
+      "task": "llm/v1/chat"
+    }
+  },
+  "ai_gateway": {
+    "inference_table_config": {
+      "catalog_name": "tech_summit_27_sentenel",
+      "enabled": true,
+      "schema_name": "dev_doug_rogers_sentinel_ipp",
+      "table_name_prefix": "sentinel_agent_llm"
+    },
+    "usage_tracking_config": {
+      "enabled": true
+    }
+  }
+}

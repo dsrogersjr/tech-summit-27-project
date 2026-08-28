@@ -1,0 +1,57 @@
+ucode status
+  Configured
+
+Provider
+  Workspace URL: https://fe-sandbox-tech-summit-27-doug.cloud.databricks.com
+  CLI profile: fe-sandbox-tech-summit-27-doug
+
+Coding Agents
+  Coding Agent: Codex
+  Configured: no
+  Base URL: not configured
+  Config file: missing
+
+  Coding Agent: Claude Code
+  Configured: yes
+  Base URL: 
+https://fe-sandbox-tech-summit-27-doug.cloud.databricks.com/ai-gateway/anthropic
+  MCP list command: claude mcp list
+  MCP servers: system-ai-slack
+  Config file: /Users/doug.rogers/.claude/ucode-settings.json
+
+  Coding Agent: Gemini CLI
+  Configured: no
+  Base URL: not configured
+  Config file: missing
+
+  Coding Agent: OpenCode
+  Configured: no
+  Base URL: not configured
+  Config file: missing
+
+  Coding Agent: GitHub Copilot CLI
+  Configured: no
+  Base URL: not configured
+  Config file: missing
+
+  Coding Agent: Pi
+  Configured: no
+  Base URL: not configured
+  Config file: missing
+
+
+Skills
+  Skills: not configured
+
+Tracing
+  MLflow tracing: disabled
+
+State
+  State file: /Users/doug.rogers/.ucode/state.json
+• Use `ucode configure` to update workspace settings or configure new tools.
+• Use `ucode configure mcp` to add Databricks MCP servers to configured coding 
+tools.
+• Use `ucode configure skills` to set up Unity Catalog Skills for configured 
+coding tools.
+• Use `ucode configure tracing` to log coding sessions to an MLflow experiment.
+• Use `ucode revert` to clear managed configs and restore prior files.
