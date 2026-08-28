@@ -1,0 +1,67 @@
+[
+  {
+    "payment_id": "PAY-0000202",
+    "program": "TANF",
+    "risk_level": "high",
+    "state": "MN",
+    "payment_amount_usd": 3227.73,
+    "queue_date": "2026-07-03",
+    "n_signals": 2,
+    "signal_list": ["cross_agency_fraud_flag", "income_mismatch"],
+    "improper_payment_exposure_usd": 2582.18,
+    "recommended_disposition": "hold_for_verification",
+    "confidence_score": 0.95
+  },
+  {
+    "payment_id": "PAY-0000827",
+    "program": "SNAP",
+    "risk_level": "high",
+    "state": "MD",
+    "payment_amount_usd": 1368.72,
+    "queue_date": "2026-07-19",
+    "n_signals": 2,
+    "signal_list": ["deceased_payee", "income_mismatch"],
+    "improper_payment_exposure_usd": 1094.97,
+    "recommended_disposition": "hold_for_verification",
+    "confidence_score": 0.95
+  },
+  {
+    "payment_id": "PAY-0000677",
+    "program": "TANF",
+    "risk_level": "moderate",
+    "state": "GA",
+    "payment_amount_usd": 3341.51,
+    "queue_date": "2026-07-28",
+    "n_signals": 1,
+    "signal_list": ["duplicate_identity"],
+    "improper_payment_exposure_usd": 501.23,
+    "recommended_disposition": "hold_for_verification",
+    "confidence_score": 0.70
+  },
+  {
+    "payment_id": "PAY-0000779",
+    "program": "Veteran's",
+    "risk_level": "moderate",
+    "state": "NC",
+    "payment_amount_usd": 3172.29,
+    "queue_date": "2026-07-14",
+    "n_signals": 1,
+    "signal_list": ["residence_mismatch"],
+    "improper_payment_exposure_usd": 475.84,
+    "recommended_disposition": "release",
+    "confidence_score": 0.70
+  },
+  {
+    "payment_id": "PAY-0000636",
+    "program": "TANF",
+    "risk_level": "moderate",
+    "state": "CO",
+    "payment_amount_usd": 3160.14,
+    "queue_date": "2026-07-14",
+    "n_signals": 1,
+    "signal_list": ["deceased_payee"],
+    "improper_payment_exposure_usd": 474.02,
+    "recommended_disposition": "hold_for_verification",
+    "confidence_score": 0.70
+  }
+]

@@ -1,0 +1,17 @@
+# `dev` branch
+
+Tracks `origin/dev`. Created from `main` (`861be91`) after renaming `dev/table-rename` → `table-rename`, then fast-forwarded that work in.
+
+HEAD: `0ed6aa6` — two commits ahead of `main`:
+
+1. `7dc9b78` — rename long table name `disposition_recommendations`
+2. `0ed6aa6` — add script to rename the table in Lakebase
+
+## What changed vs `main`
+
+Postgres/Drizzle table rename: `app.disposition_recommendations` → `app.dispo_recs`.
+
+- `app/server/db/schema.ts` — table name in the Drizzle definition
+- `app/server/db/sync.ts`, `queries/cases.ts`, `agent/caseops.ts`, `client/src/shared/types.ts`, `scripts/reset_app_schema.ts` — readers/writers
+- `app/APP_WORKSHOP.md`, `specifications/app/00_OVERVIEW.md`, `03_DATA_MODEL.md` — docs
+- `app/scripts/rename_disposition_table.ts` — one-off `ALTER TABLE … RENAME TO dispo_recs` for the live Lakebase branch

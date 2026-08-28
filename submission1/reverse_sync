@@ -1,0 +1,17 @@
+# Reverse-synced Unity Catalog Delta table
+
+Lakebase CDF writes `app.case_actions` into:
+
+`tech_summit_27_sentenel.dev_doug_rogers_sentinel_ipp.lb_case_actions_history`
+
+Each change is an append-only SCD Type 2 history row. Source columns stay as they were in Postgres; these system metadata columns are appended:
+
+| Column | Type | Meaning |
+|---|---|---|
+| `_pg_change_type` | TEXT | `insert`, `update_preimage`, `update_postimage`, `delete` |
+| `_pg_lsn` | BIGINT | Postgres LSN (order of WAL changes) |
+| `_pg_xid` | INTEGER | Postgres transaction id |
+| `_timestamp` | TIMESTAMP | When CDF processed the change (no timezone) |
+| `_sort_by` | BIGINT | Monotonic key across all changes |
+
+Sample: `submission1/reverse_sync_sample.json` — PAY-0000214 insert, then an approval update (`update_preimage` + `update_postimage`).
