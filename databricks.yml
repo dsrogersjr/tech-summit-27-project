@@ -80,6 +80,7 @@ sync:
     - "src/**"
     - "genie_space.json"
     - "dashboard.lvdash.json"
+    - "sentinel_workspace_usage.lvdash.json"
     - "app/dist/**"          # tsdown output (server bundle)
     - "app/client/dist/**"   # vite output (client bundle)
     - "app/drizzle/**"       # generated Drizzle SQL migrations (build-app.sh
@@ -233,6 +234,11 @@ resources:
       warehouse_id: ${resources.sql_warehouses.sentinel_warehouse.id}
       dataset_catalog: ${resources.schemas.demo_schema.catalog_name}
       dataset_schema: ${resources.schemas.demo_schema.name}
+
+    sentinel_workspace_usage:
+      display_name: "[${bundle.target}] Sentinel Workspace Usage"
+      file_path: ./sentinel_workspace_usage.lvdash.json
+      warehouse_id: ${resources.sql_warehouses.sentinel_warehouse.id}
 
   # ──────────────────────────────────────────────────────────────────────────
   # Payment Integrity App — examiner console (Visualize → Assist → Act) on
