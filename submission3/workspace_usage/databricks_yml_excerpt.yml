@@ -1,0 +1,11 @@
+# From repo-root databricks.yml — dashboard resource + sync whitelist.
+
+sync:
+  include:
+    - "sentinel_workspace_usage.lvdash.json"
+
+dashboards:
+  sentinel_workspace_usage:
+    display_name: "[${bundle.target}] Sentinel Workspace Usage"
+    file_path: ./sentinel_workspace_usage.lvdash.json
+    warehouse_id: ${resources.sql_warehouses.sentinel_warehouse.id}

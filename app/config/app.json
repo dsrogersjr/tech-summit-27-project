@@ -16,14 +16,16 @@
   //   wires either a Genie space (GENIE_SPACE_ID) or a Multi-Agent Supervisor
   //   endpoint (MAS_ENDPOINT_NAME). The app registers whichever is set; if
   //   BOTH are empty the agent has no ask_data tool (warned at boot).
-  //   The default Sentinel flow uses Genie ("ask about PAY-0000214 flags").
+  //   The default Sentinel flow uses Genie ("ask about PAY-0000202 flags").
   "masEndpointName": "${MAS_ENDPOINT_NAME:}",
   "genieSpaceId":    "${GENIE_SPACE_ID:}",
 
-  // Agent LLM. Needs the Responses API (openai/v1/responses). databricks-gpt-5-4
-  // is the baseline; a newer GPT endpoint with /responses enabled works too.
-  // Non-Responses models (Claude etc.) 400 BAD_REQUEST.
-  "agentModel": "databricks-gpt-5-4",
+  // Agent LLM — routed through the governed AI Gateway endpoint
+  // `sentinel-agent-llm` (external-model chat proxy of the FM, with an inference
+  // table + usage tracking + guardrails). The agent uses the chat-completions API
+  // (see setOpenAIAPI('chat_completions') in caseops.ts). Override via
+  // SERVING_ENDPOINT; falls back to the governed endpoint name.
+  "agentModel": "${SERVING_ENDPOINT:sentinel-agent-llm}",
 
   // MLflow trace path. Empty → chat shows "Trace pending…". Auto-created at boot.
   "mlflowExperimentId": "",
@@ -32,6 +34,7 @@
   // Embedded AI/BI dashboard (UUID). The Sentinel payment-integrity
   // validation dashboard. Empty → the /dashboard route + tile render inert.
   "dashboardId": "${DASHBOARD_ID:01f19f90ed911070b65a7c7d061d7492}",
+  "workspaceUsageDashboardId": "${WORKSPACE_USAGE_DASHBOARD_ID:}",
 
   // Workspace resource IDs → deep-link URLs via /api/resources (PlatformDiagram
   // on /platform). Empty id → tile renders inert.
@@ -69,15 +72,15 @@
   // The Sentinel investigate → rank → approve flow.
   "assistantScript": [
     {
-      "prompt": "What fraud signals triggered the flags on Payment PAY-0000214, and what are my disposition options?"
+      "prompt": "What fraud signals triggered the flags on Payment PAY-0000202, and what are my disposition options?"
     },
     {
-      "prompt": "Rank the disposition recommendations. Use the model.",
-      "triggerAfter": ["flag", "flagged", "options", "PAY-0000214", "signal", "disposition"]
+      "prompt": "Rank the caseops disposition recommendations for PAY-0000202 and retrieve the verification playbook before drafting a hold request.",
+      "triggerAfter": ["flag", "flagged", "options", "PAY-0000202", "signal", "disposition"]
     },
     {
-      "prompt": "Yes — approve the hold for verification.",
-      "triggerAfter": ["hold", "disposition", "approve", "recommended", "recovery"]
+      "prompt": "Approve the caseops hold for verification on PAY-0000202.",
+      "triggerAfter": ["hold", "playbook", "disposition", "approve", "recommended", "recovery"]
     }
   ]
 }

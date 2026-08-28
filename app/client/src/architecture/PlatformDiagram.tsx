@@ -1,5 +1,5 @@
 /**
- * PlatformDiagram — the "Running LuxeBeauty Returns on the Databricks
+ * PlatformDiagram — the "Running Sentinel Payment Integrity on the Databricks
  * Platform" panel that sits on top of the /platform page. Mirrors the
  * official Data + AI Platform slide layout: a single bordered box with
  * row labels on the left and product tiles on the right, plus a flowing
@@ -44,6 +44,7 @@ import {
 // URL → the <Prod> renderer treats that as "non-clickable tile".
 const EMPTY: WorkspaceResources = {
   dashboard:     { id: '', url: '' },
+  workspaceUsage:{ id: '', url: '' },
   genie:         { id: '', url: '' },
   pipeline:      { id: '', url: '' },
   warehouse:     { id: '', url: '' },
@@ -279,14 +280,14 @@ export function PlatformDiagram() {
   const href = (u: string) => (u ? u : undefined);
 
   return (
-    <section className="pd-root" aria-label="LuxeBeauty on the Databricks Platform">
+    <section className="pd-root" aria-label="Sentinel on the Databricks Platform">
       <style>{CSS}</style>
       <div className="pd-wrap">
         <div className="pd-hero">
           <div className="pd-brand">Databricks Platform</div>
-          <div className="pd-kick">LuxeBeauty · Returns Intelligence</div>
+          <div className="pd-kick">Sentinel · Payment Integrity</div>
           <h2>
-            Running LuxeBeauty Returns on the{' '}
+            Running Sentinel Payment Integrity on the{' '}
             <span className="pd-hl">Databricks Platform</span>
           </h2>
         </div>
@@ -302,14 +303,14 @@ export function PlatformDiagram() {
             <Prod
               href={href(R.app.url)}
               icon={<AppsIcon />}
-              title="Returns Console"
-              sub="This app — queue, agent, refunds, all in one place"
+              title="Payment Integrity Console"
+              sub="Flagged-payment queue, governed agent, and audited dispositions"
             />
             <Prod
               href={href(R.dashboard.url)}
               icon={<AIBIIcon />}
               title="AI/BI Dashboard"
-              sub="Where the returns are coming from — same numbers, one page"
+              sub="Improper-payment exposure, recovery potential, and queue trends"
             />
           </Row>
 
@@ -360,7 +361,7 @@ export function PlatformDiagram() {
                   <span className="pd-chip"><AgentsIcon />AGENTS</span>
                   <span className="pd-chip"><CodeIcon />CODE</span>
                 </span>
-                <span className="pd-sub">"Why do I have so many returns?"</span>
+                <span className="pd-sub">"Where is improper-payment risk concentrated?"</span>
               </span>
             </div>
             {/* Default href = the workspace-wide Agent Bricks landing
@@ -375,7 +376,7 @@ export function PlatformDiagram() {
               href={href(R.agentBricks.url)}
               icon={<AgentBricksIcon />}
               title="Agent Bricks"
-              sub="Diagnose the spike, draft apology emails, file refunds"
+              sub="Investigate flags, retrieve playbooks, and recommend dispositions"
             />
           </Row>
 
@@ -389,7 +390,7 @@ export function PlatformDiagram() {
               href={href(R.catalog.url)}
               icon={<UCIcon />}
               title="Unity Catalog"
-              sub="retail_consumer_goods.luxebeauty_demo — one governed schema + lineage"
+              sub={`${R.catalog.id || 'Sentinel data'} — governed schema + lineage`}
             />
             <Prod
               href={href(R.gateway.url)}
@@ -401,7 +402,7 @@ export function PlatformDiagram() {
 
           <Row
             ttl="Agentic Data"
-            sub="Unified, real-time data foundation — the returns story"
+            sub="Unified, real-time foundation for pre-disbursement decisions"
           >
             <div className="pd-story">
               <FlowKeyframes />
@@ -432,13 +433,13 @@ export function PlatformDiagram() {
                   icon={<LakehouseIcon />}
                   title="Lakehouse"
                   rt
-                  sub="~100 ms charts, thousands of concurrent users"
+                  sub="Governed analytics, AI classification, and ML scoring"
                 />
                 <Prod
                   href={href(R.lakebase.url)}
                   icon={<LakebaseIcon />}
                   title="Lakebase"
-                  sub="Returns Console reads/writes the queue live · branch on reset"
+                  sub="Console reads synced flags and writes audited case actions"
                 />
               </div>
             </div>
@@ -466,7 +467,7 @@ export function PlatformDiagram() {
             href={href(R.volume.url)}
             target="_blank"
             rel="noopener noreferrer"
-            title="Manufacturing PDFs on a Unity Catalog Volume"
+            title="Reference guidance on a Unity Catalog Volume"
           >
             <UploadArrow />Upload · file on Volume
           </a>
@@ -475,19 +476,19 @@ export function PlatformDiagram() {
         <div className="pd-sources">
           <div className="pd-src">
             <span className="pd-tile"><SrcIcon d={SRC.scan} /></span>
-            <span className="pd-tx"><b>Order POS</b><span>400K orders · 24mo</span></span>
+            <span className="pd-tx"><b>Payment Claims</b><span>amounts · programs · queue dates</span></span>
           </div>
           <div className="pd-src">
             <span className="pd-tile"><SrcIcon d={SRC.bet} /></span>
-            <span className="pd-tx"><b>CS Tickets</b><span>returns · sentiment</span></span>
+            <span className="pd-tx"><b>Eligibility Records</b><span>identity · income · enrollment</span></span>
           </div>
           <div className="pd-src">
             <span className="pd-tile"><SrcIcon d={SRC.odds} /></span>
-            <span className="pd-tx"><b>Production Lots</b><span>QC + lot manifests</span></span>
+            <span className="pd-tx"><b>Fraud Match Feeds</b><span>cross-agency · deceased · duplicate</span></span>
           </div>
           <div className="pd-src">
             <span className="pd-tile"><SrcIcon d={SRC.pdf} /></span>
-            <span className="pd-tx"><b>Manufacturing PDFs</b><span>incident reports → KA</span></span>
+            <span className="pd-tx"><b>Federal Playbooks</b><span>verification steps · authority</span></span>
           </div>
         </div>
 

@@ -1,0 +1,73 @@
+{
+  "table": "tech_summit_27_sentenel.dev_doug_rogers_sentinel_ipp.lb_case_actions_history",
+  "source": "sentenel-tech-summit-27 / sentenel_tech_summit_27 / app.case_actions",
+  "rows": [
+    {
+      "id": "c8e2a1b4-7f31-4d9a-9c2e-0a1f5b6d8e21",
+      "payment_id": "PAY-0000214",
+      "signal_type": "duplicate_identity",
+      "action_type": "hold_for_verification",
+      "hold_duration_hours": 48,
+      "drafted_request": "Hold PAY-0000214 48–72h pending identity verification with flagging agency.",
+      "predicted_recovery_usd": 2140.0,
+      "status": "proposed",
+      "approved_by": null,
+      "reviewed_by_role": "program_integrity_examiner",
+      "audit_trail": [],
+      "created_at": "2026-08-28T13:02:11.000Z",
+      "decided_at": null,
+      "_pg_change_type": "insert",
+      "_pg_lsn": 24117248,
+      "_pg_xid": 78102,
+      "_timestamp": "2026-08-28T13:02:26.000",
+      "_sort_by": 1
+    },
+    {
+      "id": "c8e2a1b4-7f31-4d9a-9c2e-0a1f5b6d8e21",
+      "payment_id": "PAY-0000214",
+      "signal_type": "duplicate_identity",
+      "action_type": "hold_for_verification",
+      "hold_duration_hours": 48,
+      "drafted_request": "Hold PAY-0000214 48–72h pending identity verification with flagging agency.",
+      "predicted_recovery_usd": 2140.0,
+      "status": "proposed",
+      "approved_by": null,
+      "reviewed_by_role": "program_integrity_examiner",
+      "audit_trail": [],
+      "created_at": "2026-08-28T13:02:11.000Z",
+      "decided_at": null,
+      "_pg_change_type": "update_preimage",
+      "_pg_lsn": 24118592,
+      "_pg_xid": 78118,
+      "_timestamp": "2026-08-28T13:04:02.000",
+      "_sort_by": 2
+    },
+    {
+      "id": "c8e2a1b4-7f31-4d9a-9c2e-0a1f5b6d8e21",
+      "payment_id": "PAY-0000214",
+      "signal_type": "duplicate_identity",
+      "action_type": "hold_for_verification",
+      "hold_duration_hours": 48,
+      "drafted_request": "Hold PAY-0000214 48–72h pending identity verification with flagging agency.",
+      "predicted_recovery_usd": 2140.0,
+      "status": "approved",
+      "approved_by": "doug.rogers@databricks.com",
+      "reviewed_by_role": "deputy_commissioner",
+      "audit_trail": [
+        {
+          "at": "2026-08-28T13:04:01.000Z",
+          "by": "doug.rogers@databricks.com",
+          "action": "approved",
+          "notes": "Della approved hold before disbursement."
+        }
+      ],
+      "created_at": "2026-08-28T13:02:11.000Z",
+      "decided_at": "2026-08-28T13:04:01.000Z",
+      "_pg_change_type": "update_postimage",
+      "_pg_lsn": 24118592,
+      "_pg_xid": 78118,
+      "_timestamp": "2026-08-28T13:04:02.000",
+      "_sort_by": 3
+    }
+  ]
+}

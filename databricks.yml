@@ -1,10 +1,12 @@
 # Databricks Asset Bundle — Sentinel: Improper-Payment Prevention (Pre-Disbursement).
 #
 # Re-creates the whole demo on ANY workspace from scratch. What it provisions:
-#   schema + raw_data volume + SDP pipeline + AI/BI dashboard + the Payment
-#   Integrity App shell, created by `bundle deploy`; then a setup job fills them
+#   schema + raw_data volume + SDP pipeline + Gold→Lakebase SNAPSHOT syncs +
+#   AI/BI dashboard + the Payment Integrity App shell, created by `bundle deploy`;
+#   then a setup job fills them
 #   in on `bundle run`:
-#     generate_data → run_pipeline → deploy_metric_view + deploy_genie
+#     generate_data → classify_payment_signals → run_pipeline
+#     → deploy_metric_view + deploy_genie
 #     → grant_app_uc → export_resources (exits a JSON manifest of every ID).
 #
 # This demo's disposition recommendation is a PIPELINE HEURISTIC (built in the
@@ -44,6 +46,9 @@ variables:
   app_name:
     description: "Workspace app name (must be unique per workspace)"
     default: "dbgen-sentinel-ipp"
+  supervisor_emails:
+    description: "Comma-separated app users authorized to execute case actions"
+    default: "doug.rogers@databricks.com"
   lakebase_project_id:
     description: "Lakebase project — reused if it already exists"
     default: "sentenel-tech-summit-27"
@@ -79,6 +84,7 @@ sync:
     - "src/**"
     - "genie_space.json"
     - "dashboard.lvdash.json"
+    - "sentinel_workspace_usage.lvdash.json"
     - "app/dist/**"          # tsdown output (server bundle)
     - "app/client/dist/**"   # vite output (client bundle)
     - "app/drizzle/**"       # generated Drizzle SQL migrations (build-app.sh
@@ -134,6 +140,10 @@ resources:
       name: ${var.schema}
       catalog_name: ${var.catalog}
       comment: "Sentinel improper-payment prevention: synthetic payment + fraud-signal data, silver/gold pipeline tables, and the mv_payment_risk metric view."
+    sync_pipeline_storage:
+      name: sentinel_sync_storage
+      catalog_name: ${var.catalog}
+      comment: "Lakeflow storage for Lakebase Gold→Postgres synced-table pipelines (not the Gold demo schema)."
 
   volumes:
     raw_data:
@@ -142,6 +152,50 @@ resources:
       name: "raw_data"
       volume_type: "MANAGED"
       comment: "Raw parquet landing zone — generate_data.py writes here; the SDP silver reads it via read_files()."
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Lakebase synced tables — Gold Delta → Postgres (declared, not UI-only).
+  # SNAPSHOT: SDP materialized views typically have no Change Data Feed.
+  # Destination is a standard UC schema (sync_pipeline_storage), not Drizzle's
+  # app.payment_position / open_queue / dispo_recs — boot sync.ts still maps
+  # columns into those mirrors. Gold sources exist after `bundle run sentinel_setup`.
+  # ──────────────────────────────────────────────────────────────────────────
+  postgres_synced_tables:
+    sync_gold_queue_scored:
+      synced_table_id: ${resources.schemas.sync_pipeline_storage.catalog_name}.${resources.schemas.sync_pipeline_storage.name}.gold_queue_scored_synced
+      source_table_full_name: ${resources.schemas.demo_schema.catalog_name}.${resources.schemas.demo_schema.name}.gold_queue_scored
+      primary_key_columns: [payment_id]
+      scheduling_policy: SNAPSHOT
+      postgres_database: ${var.lakebase_database_name}
+      branch: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}
+      create_database_objects_if_missing: true
+      new_pipeline_spec:
+        storage_catalog: ${resources.schemas.sync_pipeline_storage.catalog_name}
+        storage_schema: ${resources.schemas.sync_pipeline_storage.name}
+
+    sync_gold_open_queue:
+      synced_table_id: ${resources.schemas.sync_pipeline_storage.catalog_name}.${resources.schemas.sync_pipeline_storage.name}.gold_open_queue_synced
+      source_table_full_name: ${resources.schemas.demo_schema.catalog_name}.${resources.schemas.demo_schema.name}.gold_open_queue
+      primary_key_columns: [payment_id]
+      scheduling_policy: SNAPSHOT
+      postgres_database: ${var.lakebase_database_name}
+      branch: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}
+      create_database_objects_if_missing: true
+      new_pipeline_spec:
+        storage_catalog: ${resources.schemas.sync_pipeline_storage.catalog_name}
+        storage_schema: ${resources.schemas.sync_pipeline_storage.name}
+
+    sync_gold_disposition_recommendations:
+      synced_table_id: ${resources.schemas.sync_pipeline_storage.catalog_name}.${resources.schemas.sync_pipeline_storage.name}.gold_disposition_recommendations_synced
+      source_table_full_name: ${resources.schemas.demo_schema.catalog_name}.${resources.schemas.demo_schema.name}.gold_disposition_recommendations
+      primary_key_columns: [payment_id]
+      scheduling_policy: SNAPSHOT
+      postgres_database: ${var.lakebase_database_name}
+      branch: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}
+      create_database_objects_if_missing: true
+      new_pipeline_spec:
+        storage_catalog: ${resources.schemas.sync_pipeline_storage.catalog_name}
+        storage_schema: ${resources.schemas.sync_pipeline_storage.name}
 
   # ──────────────────────────────────────────────────────────────────────────
   # SDP pipeline — raw passthrough → silver (flagged payments + case outcomes)
@@ -185,6 +239,11 @@ resources:
       dataset_catalog: ${resources.schemas.demo_schema.catalog_name}
       dataset_schema: ${resources.schemas.demo_schema.name}
 
+    sentinel_workspace_usage:
+      display_name: "[${bundle.target}] Sentinel Workspace Usage"
+      file_path: ./sentinel_workspace_usage.lvdash.json
+      warehouse_id: ${resources.sql_warehouses.sentinel_warehouse.id}
+
   # ──────────────────────────────────────────────────────────────────────────
   # Payment Integrity App — examiner console (Visualize → Assist → Act) on
   # Lakebase, fronted by Genie. Plain-value env (catalog/schema/dashboard_id/
@@ -226,6 +285,15 @@ resources:
             branch: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}
             database: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}/databases/${var.lakebase_database_id}
             permission: CAN_CONNECT_AND_CREATE
+        # Governed LLM endpoint (external-model chat proxy + AI Gateway inference
+        # table). The agent routes LLM requests through this instead of the shared
+        # FM endpoint (see app/config/app.json agentModel + setOpenAIAPI in
+        # caseops.ts). Defined imperatively in create_governed_llm_endpoint.sh /
+        # governed_llm_endpoint.dab.yml; this binding grants the app SP CAN_QUERY.
+        - name: serving-endpoint
+          serving_endpoint:
+            name: sentinel-agent-llm
+            permission: CAN_QUERY
 
   # ──────────────────────────────────────────────────────────────────────────
   # Setup job — everything that runs AFTER `bundle deploy` creates the shells.
@@ -235,7 +303,7 @@ resources:
   jobs:
     sentinel_setup:
       name: "[${bundle.target}] Sentinel Setup"
-      description: "data → pipeline → metric view + genie → grant app SP → export IDs"
+      description: "data → AI signal lookup → pipeline → metric view + genie → grant app SP → export IDs"
       tasks:
         - task_key: generate_data
           notebook_task:
@@ -245,8 +313,21 @@ resources:
               schema:  ${resources.schemas.demo_schema.name}
           environment_key: sdk_default
 
-        - task_key: run_pipeline
+        # ai_classify cannot run inside SDP materialized-view definitions. This
+        # batch task classifies distinct raw parquet signals into a governed
+        # Delta lookup that Silver joins for explanatory categories. The
+        # deterministic Silver risk rules remain authoritative.
+        - task_key: classify_payment_signals
           depends_on: [{ task_key: generate_data }]
+          notebook_task:
+            notebook_path: ./src/setup/classify_payment_signals.py
+            base_parameters:
+              catalog: ${resources.schemas.demo_schema.catalog_name}
+              schema:  ${resources.schemas.demo_schema.name}
+          environment_key: sdk_default
+
+        - task_key: run_pipeline
+          depends_on: [{ task_key: classify_payment_signals }]
           pipeline_task:
             pipeline_id: ${resources.pipelines.sentinel_pipeline.id}
 
@@ -299,8 +380,10 @@ resources:
               catalog:        ${resources.schemas.demo_schema.catalog_name}
               schema:         ${resources.schemas.demo_schema.name}
               dashboard_id:   ${resources.dashboards.sentinel_dashboard.id}
+              workspace_usage_dashboard_id: ${resources.dashboards.sentinel_workspace_usage.id}
               pipeline_id:    ${resources.pipelines.sentinel_pipeline.id}
               warehouse_id:   ${resources.sql_warehouses.sentinel_warehouse.id}
+              supervisor_emails: ${var.supervisor_emails}
               genie_space_id: "{{tasks.deploy_genie.values.genie_space_id}}"
           environment_key: sdk_latest
 

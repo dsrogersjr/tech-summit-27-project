@@ -60,6 +60,8 @@ interface ChartsDeps {
   /** Demo catalog + schema (from appConfig.data → env). */
   catalog: string;
   schema: string;
+  /** Runtime workspace scope used by system.billing queries. */
+  workspaceId: string;
   /** Absolute path to the config/queries dir. */
   queriesDir: string;
 }
@@ -67,13 +69,14 @@ interface ChartsDeps {
 // Query key → filename. Only these keys are runnable (closed allowlist —
 // no arbitrary file reads from a user-supplied key).
 const QUERY_FILES: Record<string, string> = {
+  ai_governance_spend: 'ai_governance_spend.sql',
   cold_weather_velocity_trend: 'cold_weather_velocity_trend.sql',
   worst_shortfalls: 'worst_shortfalls.sql',
   position_mix_by_zone: 'position_mix_by_zone.sql',
 };
 
 export function registerChartRoutes(app: Application, deps: ChartsDeps): void {
-  const { query, catalog, schema, queriesDir } = deps;
+  const { query, catalog, schema, workspaceId, queriesDir } = deps;
 
   app.get('/api/charts/:key', async (req: Request, res: Response) => {
     const key = String(req.params.key);
@@ -92,13 +95,24 @@ export function registerChartRoutes(app: Application, deps: ChartsDeps): void {
     }
 
     try {
-      // Bind :catalog/:schema as named SQL parameters so the IDENTIFIER()
-      // table references in the .sql resolve against the demo's tables. Values
-      // must be wrapped as SQL type markers (sql.string), not raw strings.
-      const result = await query(sql, {
-        catalog: sqlParam.string(catalog),
-        schema: sqlParam.string(schema),
-      });
+      // Governance spend is always scoped to the runtime workspace. Other
+      // chart queries bind catalog/schema for portable demo-table references.
+      // The route key is allowlisted above, so callers cannot submit SQL or
+      // alter the fixed products/date window in the billing query.
+      if (key === 'ai_governance_spend' && !workspaceId) {
+        res.status(503).json({
+          error: 'Workspace usage is unavailable because DATABRICKS_WORKSPACE_ID is not set.',
+        });
+        return;
+      }
+      const parameters: Record<string, SqlMarker> = {};
+      if (key === 'ai_governance_spend') {
+        parameters.workspace_id = sqlParam.string(workspaceId);
+      } else {
+        parameters.catalog = sqlParam.string(catalog);
+        parameters.schema = sqlParam.string(schema);
+      }
+      const result = await query(sql, parameters);
       // The connector already turned rows into objects; we just coerce
       // numeric-looking cells to numbers so the charts get real numbers
       // for their yKey (the SQL API serializes everything as strings).

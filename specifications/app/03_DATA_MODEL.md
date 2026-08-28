@@ -134,4 +134,4 @@ For local development (not demo-in-workspace):
 - `SELECT * FROM case_actions LIMIT 1` works (table exists, even if empty).
 - Insert a test `case_actions` row (manual SQL or app action) → read it back → confirm write works.
 - `payment_position` + `dispo_recs` are readable (read-only constraint enforced at Postgres level via view or role).
-- Hero payment `PAY-0000214` exists in `payment_position` with `risk_level = 'high'` and a matching row in `dispo_recs`.
+- Hero payment `PAY-0000202` exists in `payment_position` with `risk_level = 'high'` and a matching row in `dispo_recs`: TANF, MN, $3,227.73, `cross_agency_fraud_flag` + `income_mismatch`, ~$2,582.18 exposure, `hold_for_verification` recommended for 72 hours, and about $1,678 predicted recovery. Its latest `case_actions` row records the examiner-approved 48-hour hold.

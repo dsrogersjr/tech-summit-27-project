@@ -1,0 +1,93 @@
+[
+  {
+    "billing_origin_product": "AI_GATEWAY",
+    "budget_policy_id": "",
+    "dbus": "0.0037",
+    "last_day": "2026-08-28",
+    "records": "8"
+  },
+  {
+    "billing_origin_product": "APPS",
+    "budget_policy_id": "",
+    "dbus": "8.7869",
+    "last_day": "2026-08-28",
+    "records": "18"
+  },
+  {
+    "billing_origin_product": "DEFAULT_STORAGE",
+    "budget_policy_id": "",
+    "dbus": "0.7339",
+    "last_day": "2026-08-28",
+    "records": "69"
+  },
+  {
+    "billing_origin_product": "DLT",
+    "budget_policy_id": "f3f67b92-c3de-3903-b6a2-3f7ee227de07",
+    "dbus": "0.5290",
+    "last_day": "2026-08-27",
+    "records": "4"
+  },
+  {
+    "billing_origin_product": "GENIE",
+    "budget_policy_id": "",
+    "dbus": "376.2733",
+    "last_day": "2026-08-27",
+    "records": "78"
+  },
+  {
+    "billing_origin_product": "INTERACTIVE",
+    "budget_policy_id": "f3f67b92-c3de-3903-b6a2-3f7ee227de07",
+    "dbus": "4.7842",
+    "last_day": "2026-08-27",
+    "records": "19"
+  },
+  {
+    "billing_origin_product": "INTERACTIVE",
+    "budget_policy_id": "",
+    "dbus": "1.0552",
+    "last_day": "2026-08-27",
+    "records": "9"
+  },
+  {
+    "billing_origin_product": "INTERACTIVE",
+    "budget_policy_id": "0104ea6d-ae1d-3a25-b4bc-e8b53abd4fe5",
+    "dbus": "0.0001",
+    "last_day": "2026-08-27",
+    "records": "1"
+  },
+  {
+    "billing_origin_product": "JOBS",
+    "budget_policy_id": "f3f67b92-c3de-3903-b6a2-3f7ee227de07",
+    "dbus": "0.9632",
+    "last_day": "2026-08-27",
+    "records": "6"
+  },
+  {
+    "billing_origin_product": "LAKEBASE",
+    "budget_policy_id": "",
+    "dbus": "50.4080",
+    "last_day": "2026-08-28",
+    "records": "440"
+  },
+  {
+    "billing_origin_product": "MODEL_SERVING",
+    "budget_policy_id": "",
+    "dbus": "1.7158",
+    "last_day": "2026-08-28",
+    "records": "8"
+  },
+  {
+    "billing_origin_product": "NETWORKING",
+    "budget_policy_id": "",
+    "dbus": "0.1257",
+    "last_day": "2026-08-28",
+    "records": "167"
+  },
+  {
+    "billing_origin_product": "SQL",
+    "budget_policy_id": "",
+    "dbus": "6.6316",
+    "last_day": "2026-08-28",
+    "records": "6"
+  }
+]

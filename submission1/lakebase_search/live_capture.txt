@@ -1,0 +1,65 @@
+Live capture of the Lakebase Search build construct over app.dispo_recs.reasoning
+Raw psql output — the source of truth for dispo_recs_search_index.sql.
+
+Connection:
+  profile  : fe-sandbox-tech-summit-27-doug
+  project  : sentenel-tech-summit-27
+  branch   : dev-app-updates   (endpoint: ep-morning-union-d8vt0fu3.database.us-east-2.cloud.databricks.com)
+  database : sentenel_tech_summit_27
+  user     : doug.rogers@databricks.com
+  captured : 2026-08-28T13:40:40Z
+
+=============================================================================
+[1] Relevant extensions installed on the branch
+    SELECT extname, extversion FROM pg_extension
+    WHERE extname IN ('vector','lakebase_bm25','pg_search');
+-----------------------------------------------------------------------------
+ extname | extversion
+---------+------------
+ vector  | 0.8.0
+(1 row)
+    (BM25 is provided by the `lakebase_bm25` index access method — see [3] —
+     not a separately-listed extension row.)
+
+=============================================================================
+[2] Search-relevant columns on app.dispo_recs
+    (attname, type, default/generation expr, is_generated)
+-----------------------------------------------------------------------------
+    column     |     type     |                default_or_generated                        | is_generated
+---------------+--------------+------------------------------------------------------------+--------------
+ reasoning     | text         |                                                            | f
+ embedding     | vector(1536) |                                                            | f
+ reasoning_tsv | tsvector     | to_tsvector('english'::regconfig, COALESCE(reasoning,'')) | t   <-- STORED generated
+
+=============================================================================
+[3] ALL indexes on app.dispo_recs (with access method)
+-----------------------------------------------------------------------------
+           index           | access_method |                          indexdef
+---------------------------+---------------+---------------------------------------------------------------
+ dispo-recs_payment_id_idx | btree         | CREATE INDEX "dispo-recs_payment_id_idx" ON app.dispo_recs USING btree (payment_id)
+ dispo-recs_pkey           | btree         | CREATE UNIQUE INDEX "dispo-recs_pkey" ON app.dispo_recs USING btree (id)
+ dispo_recs_reasoning_bm25 | lakebase_bm25 | CREATE INDEX dispo_recs_reasoning_bm25 ON app.dispo_recs USING lakebase_bm25 (reasoning_tsv)
+
+=============================================================================
+[4] Data-population proof
+    SELECT COUNT(*) total_rows, COUNT(reasoning_tsv) with_tsv, COUNT(embedding) with_embedding
+    FROM app.dispo_recs;
+-----------------------------------------------------------------------------
+ total_rows | with_tsv | with_embedding
+------------+----------+----------------
+         43 |       43 |              0     <-- full-text populated; vector column empty
+
+=============================================================================
+[5] Live BM25 search — fresh execution proof (matches ../search_result.json)
+    SELECT id, reasoning_tsv <@> to_bm25query(
+             to_tsvector('english','moderate'),
+             'app.dispo_recs_reasoning_bm25'::regclass) AS score
+    FROM app.dispo_recs ORDER BY score LIMIT 3;
+-----------------------------------------------------------------------------
+     id      |         score
+-------------+-----------------------
+ PAY-0000374 | -0.059091543626172076
+ PAY-0000964 | -0.059091543626172076
+ PAY-0000850 | -0.059091543626172076
+(3 rows)
+    Same top-3 ids as the committed submission1/search_result.json -> reproducible.

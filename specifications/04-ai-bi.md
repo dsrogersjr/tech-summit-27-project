@@ -49,12 +49,12 @@ HEADLINE NUMBERS — always answer from mv_payment_risk (same definitions the da
 INVESTIGATION FLOW for "what are we at risk of and how should we handle it?":
 1. mv_payment_risk → MEASURE(improper_payment_exposure_usd) + MEASURE(flagged_payment_count) by risk_level → high-risk dominates exposure
 2. gold_open_queue → the distribution of signals (which signal types trigger the flags?) + disposition recommendations
-3. gold_open_queue WHERE payment_id='PAY-0000214' → the hero flagged payment; note n_signals, signal_list, recommended disposition
+3. gold_open_queue WHERE payment_id='PAY-0000202' → the live hero flagged payment; note TANF, MN, $3,227.73, the two signals, ~$2,582.18 exposure, and the recommendation
 4. gold_disposition_recommendations → the model recommends a disposition (release/hold/investigate) + predicted recovery $
 Conclude + suggest: "Want me to rank the disposition options for this payment or show the investigation backlog?"
 
 DISPOSITION FOLLOW-UP:
-- "What's the recommended action for Payment PAY-0000214?" → gold_disposition_recommendations for that payment → recommended_disposition + predicted_recovery_usd + the disposition_ranking options.
+- "What's the recommended action for Payment PAY-0000202?" → gold_disposition_recommendations for that payment → hold_for_verification, 72 recommended hours, about $1,678 predicted recovery, and the disposition-ranking options.
 - "How much could we recover if we investigate all high-risk flagged cases?" → SUM(projected_recovery_if_investigated_usd) from gold_open_queue WHERE risk_level='high'.
 - "How many flagged payments are recommended for each disposition?" → MEASURE(release_recommended_count) / MEASURE(hold_recommended_count) / MEASURE(investigate_recommended_count).
 ```
@@ -66,14 +66,14 @@ Ship 7 questions, in this order, each as both a chip (`config.sample_questions`)
 1. **Headline** — "How much improper-payment exposure are we at risk of in the current queue, and how many flagged cases do we have?" → `MEASURE(improper_payment_exposure_usd)` + `MEASURE(flagged_payment_count)` from `mv_payment_risk`.
 2. **The split** — "Break down the improper-payment exposure and flagged case count by risk level." → `MEASURE(improper_payment_exposure_usd)` + `MEASURE(flagged_payment_count)` from `mv_payment_risk` GROUP BY `risk_level`.
 3. **Drill to programs** — "Which benefit programs carry the highest improper-payment risk?" → `gold_open_queue` GROUP BY `program`, sum `improper_payment_exposure_usd`, count cases.
-4. **The hero payment** — "Payment PAY-0000214 is flagged — how many fraud signals does it carry, and what's the recommended disposition?" → `gold_open_queue WHERE payment_id='PAY-0000214'` → `n_signals`, `signal_list`, risk_level, `improper_payment_exposure_usd`.
-5. **The recommendation** — "What's the best disposition for Payment PAY-0000214, and how much could we recover if we investigate?" → `gold_disposition_recommendations` for that payment → `recommended_disposition`, `predicted_recovery_usd`, the ranked options.
+4. **The hero payment** — "Why is TANF Payment PAY-0000202 in Minnesota flagged?" → `gold_open_queue WHERE payment_id='PAY-0000202'` → $3,227.73 amount, `cross_agency_fraud_flag` + `income_mismatch`, risk level, and ~$2,582.18 exposure.
+5. **The recommendation** — "What's the best disposition for Payment PAY-0000202, and how much could we recover?" → `gold_disposition_recommendations` → heuristic `hold_for_verification`, 72 recommended hours, about $1,678 predicted recovery, and the ranked options. Keep the examiner's approved 48-hour hold distinct.
 6. **Portfolio recovery** — "Across all flagged cases, how much could we recover by disposition, and what % of cases is each disposition recommended for?" → `MEASURE(release_recommended_count)` / `MEASURE(hold_recommended_count)` / `MEASURE(investigate_recommended_count)` + SUM recovery by disposition from `gold_disposition_recommendations`.
 7. **Signal deep-dive** — "Which fraud signals are most common in high-risk cases, and which carry the highest recovery if investigated?" → `raw_payment_fraud_flags` JOIN `gold_open_queue` WHERE risk_level='high', GROUP BY `signal`, count + sum `predicted_recovery_usd`.
 
 ### Validation
 
-"How much improper-payment exposure do we have?" → answered from `mv_payment_risk` (`MEASURE(improper_payment_exposure_usd)`), matches the dashboard tile. "Which risk level drives the exposure?" → high-risk cases dominate. "Best disposition for Payment PAY-0000214?" → hold-for-verification or investigate (not release), with recovery $, from `gold_disposition_recommendations`. Add `genie_space_id` to `resources.json`.
+"How much improper-payment exposure do we have?" → answered from `mv_payment_risk` (`MEASURE(improper_payment_exposure_usd)`), matches the dashboard tile. "Which risk level drives the exposure?" → high-risk cases dominate. "Best disposition for Payment PAY-0000202?" → hold-for-verification for 72 hours, with recovery $, from `gold_disposition_recommendations`. Add `genie_space_id` to `resources.json`.
 
 
 ## B. Dashboard
@@ -86,7 +86,7 @@ Create `Sentinel Payment Integrity` dashboard. Save it at the **project root** a
 
 - **Two pages, one story**: page 1 is the glance — *"we've spiked in high-risk flagged payments (improper-payment exposure), most recommended for hold/investigate, recovery potential is high if we triage well."* Page 2 is the deep-dive — *"which programs/signals, which cases, and what the model recommends."*
 - **One metric view + two datasets**: `mv_payment_risk` is the canonical risk layer (KPI tiles + risk-level splits — same numbers Genie uses). `gold_open_queue` powers every per-payment widget (queue list, risk rollups). `gold_disposition_recommendations` is the third dataset for the disposition-mix + projected-recovery widget.
-- **A queue list is the visual hook**: full-width payment queue on page 1 (sorted by improper exposure DESC) — red high-risk cases, yellow moderate, green low. Instantly readable; shows the priority triage order. Examiner sees the worst case first (`PAY-0000214`, hero). Clicking a row opens the case memo + recommendation detail.
+- **A queue list is the visual hook**: full-width payment queue on page 1 (sorted by improper exposure DESC) — red high-risk cases, yellow moderate, green low. Instantly readable; shows the priority triage order. The live hero is `PAY-0000202`. Clicking a row opens the case memo + recommendation detail.
 - **One AI showcase per page**: page 1's queue list colors by `risk_level` (the `ai_classify` markdown-risk signal from `01-lakeflow.md` is the parallel) + the disposition recommendation (model-driven or heuristic); page 2 surfaces the **disposition-recommendation mix + projected recovery by disposition** — AI-native analytics inside a dashboard.
 - **Clean theme — no borders, white canvas**: widgets float on the canvas; left-aligned headers; a cohesive palette where red = high-risk/high-recovery-stake, yellow = moderate, green = low-risk, so risk is color-coded consistently.
 - **Self-sufficient pages**: Row 1 of every page is a markdown `text` widget naming the event (what / when / cause / the threat) and telling the reader which widget answers which question. Lift the situation from the README.
@@ -155,7 +155,7 @@ Each filter widget has an explicit `filterTargets[]` binding only the datasets a
 
 **Row 4 — 1 × `table`** (the hero widget). Source: `ds_queue`, sorted by `improper_payment_exposure_usd` DESC, top 20.
 - **Payment Queue (priority-ranked by improper exposure)** · columns: `payment_id` (with link to deep-dive), `program`, `risk_level` (color-coded), `n_signals` (badge), `recommended_disposition` (text), `improper_payment_exposure_usd` (currency), `projected_recovery_if_investigated_usd` (currency).
-- **Hero payment `PAY-0000214` is a prominent high-risk (red) row** with 2 stacked strong signals and a prescribed hold-for-verification. It sits within the high-risk cohort near the top; because improper exposure scales with the payment amount and the hero's canonical amount is a mid-range $1,850 TANF benefit, other high-amount stacked-signal cases may show higher raw exposure. Filter by `risk_level='high'` (default view) to bring the hero into the first screenful; the app + Genie reach it directly by payment_id.
+- **Hero payment `PAY-0000202` is a prominent high-risk (red) row** with `cross_agency_fraud_flag` + `income_mismatch` and a prescribed hold-for-verification. It is a $3,227.73 TANF payment in MN with ~$2,582.18 exposure. Filter by `risk_level='high'` (default view) to bring the hero into the first screenful; the app + Genie reach it directly by payment_id.
 
 ### Page 2 — Analytics (the deep-dive)
 
@@ -172,7 +172,7 @@ Each filter widget has an explicit `filterTargets[]` binding only the datasets a
 ### Validation
 
 - **KPI tiles match Genie answers** — "How much improper-payment exposure?" from both the dashboard tile and Genie's answer to the same question must be identical (both read `MEASURE(improper_payment_exposure_usd)`).
-- **Hero payment visible** — `PAY-0000214` is in the top 5 of the queue table (sorted by improper exposure), colored red (high-risk), with a recommended disposition (hold or investigate), and a recovery $ figure.
+- **Hero payment visible** — `PAY-0000202` is near the top of the queue table (sorted by improper exposure), colored red (high-risk), with `hold_for_verification`, a 72-hour recommendation, and about $1,678 predicted recovery.
 - **Risk distribution sensible** — high-risk cases dominate improper-payment exposure ($); disposition mix shows a 3-way split (not 100% one action).
 - **Page 1 is glanceable** — a busy executive can see the 4 KPI tiles + the hero-case queue table in 5 seconds and grasp the situation.
 - **Page 2 reveals** — signal frequency + disposition mix + top-recovery cases each answer a drill-down question without requiring the reader to flip back to Page 1.

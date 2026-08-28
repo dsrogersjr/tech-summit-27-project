@@ -1,0 +1,107 @@
+[
+  {
+    "program": "Child Care",
+    "signal": "cross_agency_fraud_flag",
+    "payment_count": 2
+  },
+  {
+    "program": "Child Care",
+    "signal": "duplicate_identity",
+    "payment_count": 2
+  },
+  {
+    "program": "Child Care",
+    "signal": "deceased_payee",
+    "payment_count": 1
+  },
+  {
+    "program": "Child Care",
+    "signal": "income_mismatch",
+    "payment_count": 1
+  },
+  {
+    "program": "Disability",
+    "signal": "employment_mismatch",
+    "payment_count": 2
+  },
+  {
+    "program": "Disability",
+    "signal": "income_mismatch",
+    "payment_count": 2
+  },
+  {
+    "program": "Disability",
+    "signal": "cross_agency_fraud_flag",
+    "payment_count": 1
+  },
+  {
+    "program": "SNAP",
+    "signal": "income_mismatch",
+    "payment_count": 4
+  },
+  {
+    "program": "SNAP",
+    "signal": "cross_agency_fraud_flag",
+    "payment_count": 2
+  },
+  {
+    "program": "SNAP",
+    "signal": "employment_mismatch",
+    "payment_count": 2
+  },
+  {
+    "program": "SNAP",
+    "signal": "deceased_payee",
+    "payment_count": 1
+  },
+  {
+    "program": "TANF",
+    "signal": "income_mismatch",
+    "payment_count": 5
+  },
+  {
+    "program": "TANF",
+    "signal": "duplicate_identity",
+    "payment_count": 3
+  },
+  {
+    "program": "TANF",
+    "signal": "deceased_payee",
+    "payment_count": 2
+  },
+  {
+    "program": "TANF",
+    "signal": "cross_agency_fraud_flag",
+    "payment_count": 1
+  },
+  {
+    "program": "TANF",
+    "signal": "residence_mismatch",
+    "payment_count": 1
+  },
+  {
+    "program": "Veteran's",
+    "signal": "income_mismatch",
+    "payment_count": 6
+  },
+  {
+    "program": "Veteran's",
+    "signal": "cross_agency_fraud_flag",
+    "payment_count": 2
+  },
+  {
+    "program": "Veteran's",
+    "signal": "manual_review_flag",
+    "payment_count": 2
+  },
+  {
+    "program": "Veteran's",
+    "signal": "residence_mismatch",
+    "payment_count": 2
+  },
+  {
+    "program": "Veteran's",
+    "signal": "employment_mismatch",
+    "payment_count": 1
+  }
+]

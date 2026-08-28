@@ -1,0 +1,17 @@
+# app/scripts/lakebase_setup_db.sh — Lakebase branch + endpoint creation (build construct)
+# Cited from the repo; line numbers from lakebase_setup_db.sh
+
+83:ensure_branch_and_endpoint() {
+87:        databricks postgres create-branch "projects/$proj" "$BRANCH_ID" "${PROFILE_FLAG[@]}" \
+88:            --json '{"spec":{"no_expiry":true}}' > /dev/null
+91:        databricks postgres create-endpoint "$branch_path" primary "${PROFILE_FLAG[@]}" \
+92:            --json '{"spec":{"endpoint_type":"ENDPOINT_TYPE_READ_WRITE","autoscaling_limit_min_cu":0.5,"autoscaling_limit_max_cu":2}}' > /dev/null
+125:ensure_branch_and_endpoint "$PROJECT_ID"
+141:        ensure_branch_and_endpoint "$FALLBACK"
+
+# databricks.yml — branch var + app postgres binding
+47:  lakebase_project_id:
+50:  lakebase_branch_id:
+123:      auto_stop_mins: 10
+226:            branch: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}
+227:            database: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}/databases/${var.lakebase_database_id}

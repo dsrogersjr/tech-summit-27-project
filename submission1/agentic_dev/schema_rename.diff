@@ -1,0 +1,31 @@
+diff --git a/app/server/db/schema.ts b/app/server/db/schema.ts
+index 912d7d8..12034bd 100644
+--- a/app/server/db/schema.ts
++++ b/app/server/db/schema.ts
+@@ -21,7 +21,7 @@ import {
+  *                      jsonb/text columns on `messages` make conversations
+  *                      reload-safe with full reasoning trails preserved.
+  *   2. Synced mirror   (payment_position, open_queue,
+- *                      disposition_recommendations) — READ-ONLY copies of the
++ *                      dispo_recs) — READ-ONLY copies of the
+  *                      Gold Delta tables that `db/sync.ts` pulls at boot.
+  *                      In production these are Lakebase Synced Tables (the
+  *                      manual sync is the demo stand-in). The app SELECTs
+@@ -185,7 +185,7 @@ export const openQueue = appSchema.table(
+ // so sync.ts tolerates it not existing yet — the mirror is simply empty
+ // until they produce it.
+ export const dispositionRecommendations = appSchema.table(
+-  'disposition_recommendations',
++  'dispo_recs',
+   {
+     id: text('id').primaryKey(), // = payment_id (one row per flagged payment)
+     paymentId: text('payment_id').notNull(),
+@@ -259,7 +259,7 @@ export const caseActions = appSchema.table(
+ // ============================================================================
+ 
+ /** One option in the ML model's ranked disposition list (on
+- *  `disposition_recommendations.action_ranking`). */
++ *  `dispo_recs.action_ranking`). */
+ export type ActionOption = {
+   disposition: 'release' | 'hold_for_verification' | 'refer_to_investigation';
+   holdHours: number;

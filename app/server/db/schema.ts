@@ -9,7 +9,21 @@ import {
   index,
   uniqueIndex,
   boolean,
+  customType,
 } from 'drizzle-orm/pg-core';
+
+// pgvector column type for Lakebase Search. Stored as `vector(1024)` (the
+// databricks-gte-large-en embedding dimension); driver value is the pgvector
+// text literal `[f1,f2,…]`. Populated out-of-band by
+// scripts/setup_lakebase_search.ts, not by the Delta sync.
+const vector1024 = customType<{ data: number[]; driverData: string }>({
+  dataType() {
+    return 'vector(1024)';
+  },
+  toDriver(value: number[]): string {
+    return `[${value.join(',')}]`;
+  },
+});
 
 /**
  * Lakebase schema, under `app.*` — Sentinel Payment Integrity.
@@ -203,9 +217,50 @@ export const dispositionRecommendations = appSchema.table(
     // (03-ml-disposition) populates it; the drawer degrades gracefully.
     actionRanking: jsonb('action_ranking').$type<ActionOption[]>().notNull().default([]),
     reasoning: text('reasoning'),
+    // Lakebase Search: pgvector embedding of `reasoning`
+    // (databricks-gte-large-en, 1024-dim). Populated out-of-band by
+    // scripts/setup_lakebase_search.ts (NOT by the Delta sync — stays null
+    // there). Powers the `search_cases` tool's in-Lakebase similarity search;
+    // indexed by `dispo_recs_reasoning_vec_idx` (HNSW cosine).
+    searchEmbedding: vector1024('search_embedding'),
     scoredAt: timestamp('scored_at', { withTimezone: true }),
   },
   (t) => [index('disposition_payment_idx').on(t.paymentId)],
+);
+
+// Curated federal benefits verification guidance used by `search_playbook`.
+// The setup script owns seed content and the HNSW index; Drizzle declares the
+// table so application code and generated migrations retain its full shape.
+export const referencePlaybooks = appSchema.table(
+  'reference_playbooks',
+  {
+    guideId: text('guide_id').primaryKey(),
+    title: text('title').notNull(),
+    agency: text('agency').notNull(),
+    program: text('program').notNull(),
+    scenario: text('scenario').notNull(),
+    summary: text('summary').notNull(),
+    verificationSteps: jsonb('verification_steps')
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    requiredDocuments: jsonb('required_documents')
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    holdGuidance: text('hold_guidance'),
+    authorityCitation: text('authority_citation').notNull(),
+    sourceUrl: text('source_url'),
+    content: text('content').notNull(),
+    searchEmbedding: vector1024('search_embedding'),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('reference_playbooks_program_idx').on(t.program),
+    index('reference_playbooks_agency_idx').on(t.agency),
+  ],
 );
 
 // ============================================================================

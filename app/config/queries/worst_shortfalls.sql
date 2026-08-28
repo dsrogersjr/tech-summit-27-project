@@ -1,4 +1,4 @@
--- Highest-risk flagged payments by improper-payment exposure. PAY-0000214 should
+-- Highest-risk flagged payments by improper-payment exposure. PAY-0000202 should
 -- sit near the top. Reads the Gold queue table directly —
 -- confirmed columns, resolves on any workspace.
 -- @param catalog STRING = solution_builder

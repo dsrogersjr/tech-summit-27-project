@@ -1,0 +1,57 @@
+[
+  {
+    "branch_id": "dev-app-updates",
+    "create_time": "2026-08-27T21:03:57Z",
+    "name": "projects/sentenel-tech-summit-27/branches/dev-app-updates",
+    "parent": "projects/sentenel-tech-summit-27",
+    "status": {
+      "branch_id": "dev-app-updates",
+      "current_state": "READY",
+      "default": false,
+      "expire_time": "2026-08-28T21:03:56Z",
+      "is_protected": false,
+      "logical_size_bytes": 40329216,
+      "source_branch": "projects/sentenel-tech-summit-27/branches/dev",
+      "source_branch_lsn": "0/21A4A08",
+      "source_branch_time": "2026-08-27T21:03:39Z",
+      "state_change_time": "2026-08-27T21:03:57Z"
+    },
+    "uid": "br-lucky-moon-d8ukaquf",
+    "update_time": "2026-08-27T21:03:58Z"
+  },
+  {
+    "branch_id": "dev",
+    "create_time": "2026-08-27T21:03:37Z",
+    "name": "projects/sentenel-tech-summit-27/branches/dev",
+    "parent": "projects/sentenel-tech-summit-27",
+    "status": {
+      "branch_id": "dev",
+      "current_state": "READY",
+      "default": false,
+      "is_protected": false,
+      "logical_size_bytes": 39739392,
+      "source_branch": "projects/sentenel-tech-summit-27/branches/production",
+      "source_branch_lsn": "0/217DEA0",
+      "source_branch_time": "2026-08-27T21:03:36Z",
+      "state_change_time": "2026-08-27T21:03:38Z"
+    },
+    "uid": "br-rough-mud-d8e72os0",
+    "update_time": "2026-08-27T21:03:39Z"
+  },
+  {
+    "branch_id": "production",
+    "create_time": "2026-08-27T19:08:57Z",
+    "name": "projects/sentenel-tech-summit-27/branches/production",
+    "parent": "projects/sentenel-tech-summit-27",
+    "status": {
+      "branch_id": "production",
+      "current_state": "READY",
+      "default": true,
+      "is_protected": false,
+      "logical_size_bytes": 39649280,
+      "state_change_time": "2026-08-27T19:08:59Z"
+    },
+    "uid": "br-autumn-bar-d8p6r4ht",
+    "update_time": "2026-08-27T19:09:02Z"
+  }
+]

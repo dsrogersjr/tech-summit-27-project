@@ -39,7 +39,7 @@ export type ActionStatus = 'proposed' | 'approved' | 'executed' | 'overridden';
  * table without mutating the synced position).
  */
 export type PaymentRow = {
-  /** The payment id — the queue's row key (e.g. `PAY-0000214`). */
+  /** The payment id — the queue's row key (e.g. live hero `PAY-0000202`). */
   paymentId: string;
   program: string | null;
   state: string | null;

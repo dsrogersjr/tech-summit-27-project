@@ -1,0 +1,58 @@
+# Declarative (DAB) equivalent of create_governed_llm_endpoint.sh — the governed
+# LLM serving endpoint the Sentinel app routes through, with an AI Gateway
+# inference table + usage tracking + guardrails.
+#
+# Merge these blocks into databricks.yml `resources:` (endpoint) and the existing
+# `apps.sentinel_app.resources` (binding), and add the app.yaml env var.
+#
+# Prereq: secret {{secrets/sentinel/agent_llm_token}} must exist (a token the
+# external model uses to call the underlying FM). See create_governed_llm_endpoint.sh.
+
+resources:
+  model_serving_endpoints:
+    sentinel_agent_llm:
+      name: sentinel-agent-llm
+      config:
+        served_entities:
+          - name: sentinel-agent-llm
+            external_model:
+              name: databricks-gpt-5-4
+              provider: databricks-model-serving
+              task: llm/v1/chat
+              databricks_model_serving_config:
+                databricks_workspace_url: https://fe-sandbox-tech-summit-27-doug.cloud.databricks.com
+                databricks_api_token: "{{secrets/sentinel/agent_llm_token}}"
+      ai_gateway:
+        usage_tracking_config:
+          enabled: true
+        inference_table_config:
+          enabled: true
+          catalog_name: tech_summit_27_sentenel
+          schema_name: dev_doug_rogers_sentinel_ipp
+          table_name_prefix: sentinel_agent_llm
+        # Task 4 — custom guardrail blocking attempts to query all data:
+        guardrails:
+          input:
+            invalid_keywords:
+              - "all data"
+              - "select *"
+              - "every record"
+              - "entire table"
+              - "dump the"
+
+  # Bind the endpoint to the app so the app SP is auto-granted CAN_QUERY and the
+  # endpoint name is injected as a resource var.
+  apps:
+    sentinel_app:
+      resources:
+        - name: agent-llm
+          serving_endpoint:
+            name: sentinel-agent-llm
+            permission: CAN_QUERY
+
+# app.yaml — inject the endpoint name so the agent routes through it (task 5):
+#   env:
+#     - name: SERVING_ENDPOINT
+#       valueFrom: agent-llm
+#     - name: AGENT_MODEL          # the served entity to target on the endpoint
+#       value: sentinel-agent-llm

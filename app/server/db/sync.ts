@@ -5,7 +5,52 @@ import {
   paymentPosition,
   openQueue,
   dispositionRecommendations,
+  type ActionOption,
 } from './schema.js';
+
+/**
+ * Build the ranked disposition options for a flagged payment from the Gold
+ * heuristic's economics. Deterministic — no model call — from fields the Gold
+ * table already emits:
+ *   - release: funds disburse now; nothing recovered if the payment is improper.
+ *   - hold_for_verification: a 72h (3-day) verification hold; recover the
+ *     projected amount for the citizen-delay cost the Gold layer computed.
+ *   - refer_to_investigation: a full investigation (~10 days) recovers the full
+ *     improper exposure; delay cost scales the same 0.5%/day rate to 10 days
+ *     (referCost = holdCost / 3 * 10).
+ * These are advisory net-value economics for the ranked-options list + what-if;
+ * the rule-based `recommended_disposition` (signal strength / count) remains the
+ * authority for what the examiner should do.
+ */
+function buildActionRanking(r: {
+  predicted_recovery_usd: number | null;
+  citizen_delay_cost_usd: number | null;
+  improper_payment_exposure_usd: number | null;
+}): ActionOption[] {
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const recovery = r.predicted_recovery_usd === null ? 0 : Number(r.predicted_recovery_usd);
+  const holdCost = r.citizen_delay_cost_usd === null ? 0 : Number(r.citizen_delay_cost_usd);
+  const exposure =
+    r.improper_payment_exposure_usd === null ? 0 : Number(r.improper_payment_exposure_usd);
+  const referCost = round2((holdCost / 3) * 10);
+  return [
+    { disposition: 'release', holdHours: 0, costUsd: 0, predictedRecoveryUsd: 0, predictedNetValueUsd: 0 },
+    {
+      disposition: 'hold_for_verification',
+      holdHours: 72,
+      costUsd: round2(holdCost),
+      predictedRecoveryUsd: round2(recovery),
+      predictedNetValueUsd: round2(recovery - holdCost),
+    },
+    {
+      disposition: 'refer_to_investigation',
+      holdHours: 240,
+      costUsd: referCost,
+      predictedRecoveryUsd: round2(exposure),
+      predictedNetValueUsd: round2(exposure - referCost),
+    },
+  ];
+}
 
 /**
  * One-shot Delta → Lakebase sync — Sentinel Payment Integrity.
@@ -114,12 +159,13 @@ export async function syncFromDelta(
           confidence_score: number | null;
           predicted_recovery_usd: number | null;
           citizen_delay_cost_usd: number | null;
+          improper_payment_exposure_usd: number | null;
           reasoning: string | null;
         }>(
           warehouseId,
           `SELECT payment_id, recommended_disposition, confidence_score,
                   projected_recovery_if_investigated_usd AS predicted_recovery_usd,
-                  citizen_delay_cost_usd, reasoning
+                  citizen_delay_cost_usd, improper_payment_exposure_usd, reasoning
            FROM ${fq('dispositionRecommendations')}`,
         ).catch((e) => {
           // The trainee builds this table in the ML step — until then it
@@ -225,7 +271,7 @@ export async function syncFromDelta(
               r.citizen_delay_cost_usd === null
                 ? null
                 : Number(r.citizen_delay_cost_usd),
-            actionRanking: [],
+            actionRanking: buildActionRanking(r),
             reasoning: r.reasoning,
           })),
         )

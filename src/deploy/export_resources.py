@@ -16,17 +16,20 @@ This demo has NO ML model, KA, or MAS (the disposition is a pipeline heuristic
 and the app's data tool is Genie used directly), so those fields are omitted.
 
 Parameters (base_parameters):
-- catalog, schema, app_name, dashboard_id, pipeline_id, warehouse_id
+- catalog, schema, app_name, dashboard_id, workspace_usage_dashboard_id,
+  pipeline_id, warehouse_id, supervisor_emails
 - genie_space_id (from the deploy_genie task value)
 """
 
 # COMMAND ----------
 
 import json
+from databricks.sdk import WorkspaceClient
 
 names = [
     "catalog", "schema", "app_name",
-    "dashboard_id", "pipeline_id", "warehouse_id",
+    "dashboard_id", "workspace_usage_dashboard_id",
+    "pipeline_id", "warehouse_id", "supervisor_emails",
     "genie_space_id",
 ]
 for n in names:
@@ -45,9 +48,12 @@ resources = {
     "schema":                       vals["schema"],
     "app_name":                     vals["app_name"],
     "dashboard_id":                 vals["dashboard_id"],
+    "workspace_usage_dashboard_id": vals["workspace_usage_dashboard_id"],
     "pipeline_id":                  vals["pipeline_id"],
     "warehouse_id":                 vals["warehouse_id"],
     "genie_space_id":               vals["genie_space_id"],
+    "supervisor_emails":             vals["supervisor_emails"],
+    "workspace_id":                  str(WorkspaceClient().get_workspace_id()),
     "metric_view_name":             f"{vals['catalog']}.{vals['schema']}.mv_payment_risk",
     "agent_mlflow_experiment_path": f"/Shared/solution_builder/{vals['app_name']}-agent-traces",
 }

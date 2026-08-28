@@ -43,8 +43,14 @@ env:
     value: "dev_doug_rogers_sentinel_ipp"
   - name: DASHBOARD_ID
     value: "01f1a2520e1f1e858cd782c050286bab"
+  - name: WORKSPACE_USAGE_DASHBOARD_ID
+    value: "01f1a3129b9011dd94f73d2d01162c09"
   - name: PIPELINE_ID
     value: "9eb3eca9-799a-45ef-9cb3-c791675de949"
+  - name: DATABRICKS_WORKSPACE_ID
+    value: "7474651808472462"
+  - name: SUPERVISOR_EMAILS
+    value: "doug.rogers@databricks.com"
   - name: AGENT_MLFLOW_EXPERIMENT_PATH
     value: "/Shared/solution_builder/dbgen-sentinel-ipp-agent-traces"
   - name: GENIE_SPACE_ID

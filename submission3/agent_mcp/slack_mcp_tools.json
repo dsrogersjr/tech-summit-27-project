@@ -1,0 +1,45 @@
+{
+  "serverInfo": {
+    "name": "slack",
+    "version": "1.0.0"
+  },
+  "protocolVersion": "2025-06-18",
+  "instructions": "Search and read Slack messages, files, users, channels, threads, and canvases. The available tools are forwarded 1:1 from Slack's native MCP server, filtered to read-only tools. Write tools (send message, create/update canvas, etc.) are not surfaced by this wrapper today; the `tools/list` filter is the single barrier.",
+  "tools": [
+    {
+      "name": "slack_search_public_and_private",
+      "title": "Search messages and files",
+      "description": "Searches for messages, files in ALL Slack channels, including public channels, private channels, DMs, and group DMs. Current logged in user's user_id is U0A5U4N"
+    },
+    {
+      "name": "slack_search_channels",
+      "title": "Search channels",
+      "description": "Search for Slack channels by name or description. Returns channel names, IDs, topics, purposes, and archive status."
+    },
+    {
+      "name": "slack_search_users",
+      "title": "Search users",
+      "description": "Search for Slack users by name, email, or profile attributes (department, role, title)."
+    },
+    {
+      "name": "slack_read_channel",
+      "title": "Read channel messages",
+      "description": "Reads messages from a Slack channel in reverse chronological order (newest first). To read DM history, use a user_id as channel_id. Read-only."
+    },
+    {
+      "name": "slack_read_thread",
+      "title": "Read thread messages",
+      "description": "Reads messages from a specific Slack thread (parent message + all replies). Read-only."
+    },
+    {
+      "name": "slack_read_canvas",
+      "title": "Read a canvas",
+      "description": "Retrieves the markdown content and section ID mapping of a Slack Canvas document. Read-only."
+    },
+    {
+      "name": "slack_read_user_profile",
+      "title": "Read user profile",
+      "description": "Retrieves detailed profile information for a Slack user: contact info, status, timezone, organization, and role. Read-only. Defaults to current user if user_id "
+    }
+  ]
+}

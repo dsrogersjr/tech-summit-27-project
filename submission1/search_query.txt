@@ -1,0 +1,9 @@
+SELECT id,
+       reasoning,
+       reasoning_tsv <@> to_bm25query(
+         to_tsvector('english', 'moderate'),
+         'app.dispo_recs_reasoning_bm25'::regclass
+       ) AS score
+FROM app.dispo_recs
+ORDER BY score
+LIMIT 10;

@@ -18,7 +18,7 @@ Reads `gold_case_outcomes` (training) + `gold_open_queue` (the flagged payments 
 
 ## The story (same as the heuristic — just learned instead of coded)
 
-When a pre-disbursement payment is flagged with fraud signals, an examiner must choose: **release it to disburse**, **hold it for verification**, or **refer it to investigation** — and the right choice is **situational** (signal count + signal types + payment amount + program + history). The model **learns** how much recovery (in improper-payment catches + taxpayer impact avoidance) each disposition yields from Sentinel's own case history, instead of the heuristic's hand-set rules. For the hero payment (`PAY-0000214` × stacked strong signals × high amount) it should still rank **refer-to-investigation** first (or hold-for-verification as a close second) — the history is generated so that holds.
+When a pre-disbursement payment is flagged with fraud signals, an examiner must choose: **release it to disburse**, **hold it for verification**, or **refer it to investigation** — and the right choice is **situational** (signal count + signal types + payment amount + program + history). **The current production recommendation is the pipeline heuristic described in `01-lakeflow.md`; this ML workflow is an optional replacement, not the source of the live recommendation.** A trained model can learn recovery value from Sentinel's own case history instead of using hand-set rules. For the live hero (`PAY-0000202`, TANF, MN, $3,227.73, `cross_agency_fraud_flag` + `income_mismatch`), it should preserve the current **hold-for-verification** recommendation and produce values close to ~$2,582.18 exposure and ~$1,678 predicted recovery.
 
 ## What to train
 
@@ -61,7 +61,7 @@ Same notebook trains AND scores. After training, for every open flagged payment 
 | `predicted_net_value_usd` | recovery − citizen_delay_cost for the recommended disposition |
 | `confidence_score` | model confidence in the recommendation (0–1) |
 | `disposition_ranking` | JSON array of all three candidate dispositions with their predicted improper-%, recovery $, delay cost, and net value — the app renders this as ranked options + what-if base |
-| `reasoning` | natural-language memo scaffold filled in from model features + prediction (e.g., *"3 signals (2 strong) + $1,850 → 78% improper probability. Recommend refer-to-investigation: $1,430 predicted recovery if improper (cost ~$400 investigation) = $1,030 net value vs. hold ($400 net) or release ($0 net + ~$1,480 improper loss). Investigation justified."*) |
+| `reasoning` | natural-language memo scaffold filled in from model features + prediction (e.g., *"PAY-0000202 has a cross-agency fraud flag and income mismatch on a $3,227.73 TANF payment in MN. Estimated exposure is ~$2,582.18; hold for verification, with about $1,678 predicted recovery."*) |
 | `scored_at` | now() |
 
 **Batch only — no serving endpoint.** Every downstream consumer reads from a table; serving would add cost + quota for zero narrative gain. (Real-time re-scoring on a what-if slider is talk-track: the app recomputes the tradeoff arithmetically from `disposition_ranking` for the demo.)
@@ -75,12 +75,12 @@ One Databricks notebook (e.g. `./transformation/disposition_train_score.py`, alo
 ## Who consumes the predictions
 
 1. **Payment Integrity app** — Delta `gold_disposition_recommendations` is mirrored into Lakebase as `app.disposition_recommendations` on app boot + on "Reset demo" (see `specifications/app/03_DATA_MODEL.md`). The agent's `rank_dispositions` tool reads it from Lakebase so hot-path lookups are sub-ms; the app renders `disposition_ranking` as the ranked options + what-if base + the examiner can drill into the reasoning memo. Talking-track: production uses Lakebase Synced Tables for continuous replication; the demo does a one-shot manual sync to keep moving parts visible.
-2. **Genie** — reads from Delta directly. Answers *"what's the recommended disposition for payment PAY-0000214?"*, *"how much improper-payment exposure are we at risk of if we release all low-confidence flagged cases?"*, *"what % of our high-risk payments are recommended for investigation?"*.
+2. **Genie** — reads from Delta directly. Answers *"what's the recommended disposition for payment PAY-0000202?"*, *"how much improper-payment exposure are we at risk of if we release all low-confidence flagged cases?"*, *"what % of our high-risk payments are recommended for investigation?"*.
 3. **AI/BI dashboard** (`04-ai-bi.md`) — reads from Delta, a widget showing disposition-recommendation mix + total projected recovery across open flagged payments.
 
 ## Functional validation
 
-- **Hero recommendation is hold or investigate** — `gold_disposition_recommendations WHERE payment_id='PAY-0000214'` → `recommended_disposition IN ('hold_for_verification', 'refer_to_investigation')` with high confidence (≥0.80), `predicted_improper_probability ≥ 0.75`, and `disposition_ranking` has investigate (or hold) ranked above release. If release is recommended for the hero, re-check `gold_case_outcomes` learnability (`01-lakeflow.md` validation) and the candidate-disposition construction.
+- **Hero recommendation remains consistent** — `gold_disposition_recommendations WHERE payment_id='PAY-0000202'` → `recommended_disposition='hold_for_verification'`, recommended hold 72 hours, and predicted recovery about $1,678. If an optional model recommends release, re-check `gold_case_outcomes` learnability and candidate-disposition construction.
 - **Disposition mix is plausible** — across all open flagged payments, `recommended_disposition` is a mix (not 100% one type): high-risk → investigate/hold; moderate → hold; low → release (if any low-risk slipped into the queue). If it collapses to a single disposition everywhere, the features or the training outcomes aren't separating.
 - **Predicted recovery rolls up** — `SUM(predicted_recovery_usd)` across open flagged payments is a plausible fraction of the $12M improper-payment exposure (recovery doesn't catch 100%).
 - **Model quality** — training accuracy / AUC is reasonable (autologged); the notebook exit JSON reports it. For a classifier on improper probability, AUC ≥ 0.80 is good; for a regressor on recovery $, RMSE should be <20% of the mean recovery amount.

@@ -1,0 +1,62 @@
+[
+  {
+    "rank": 1,
+    "id": "PAY-0000374",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $553 TANF payment → estimated $83 improper exposure, $54 projected recovery if investigated. Recommend hold-for-verification: verification (~$8 delay cost over 3 days) confirms before disbursement. If improper, recovery is preserved pre-disbursement.",
+    "score": -0.059091543626172076
+  },
+  {
+    "rank": 2,
+    "id": "PAY-0000964",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $644 SNAP payment → estimated $97 improper exposure, $63 projected recovery if investigated. Recommend release: single weak signal; citizen-delay cost of holding a likely-legitimate payment outweighs the low projected recovery.",
+    "score": -0.059091543626172076
+  },
+  {
+    "rank": 3,
+    "id": "PAY-0000850",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $315 SNAP payment → estimated $47 improper exposure, $31 projected recovery if investigated. Recommend release: single weak signal; citizen-delay cost of holding a likely-legitimate payment outweighs the low projected recovery.",
+    "score": -0.059091543626172076
+  },
+  {
+    "rank": 4,
+    "id": "PAY-0000877",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $294 TANF payment → estimated $44 improper exposure, $29 projected recovery if investigated. Recommend release: single weak signal; citizen-delay cost of holding a likely-legitimate payment outweighs the low projected recovery.",
+    "score": -0.059091543626172076
+  },
+  {
+    "rank": 5,
+    "id": "PAY-0000467",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $807 SNAP payment → estimated $121 improper exposure, $79 projected recovery if investigated. Recommend release: single weak signal; citizen-delay cost of holding a likely-legitimate payment outweighs the low projected recovery.",
+    "score": -0.059091543626172076
+  },
+  {
+    "rank": 6,
+    "id": "PAY-0000081",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $407 Disability payment → estimated $61 improper exposure, $40 projected recovery if investigated. Recommend release: single weak signal; citizen-delay cost of holding a likely-legitimate payment outweighs the low projected recovery.",
+    "score": -0.059091543626172076
+  },
+  {
+    "rank": 7,
+    "id": "PAY-0000646",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $851 SNAP payment → estimated $128 improper exposure, $83 projected recovery if investigated. Recommend hold-for-verification: verification (~$13 delay cost over 3 days) confirms before disbursement. If improper, recovery is preserved pre-disbursement.",
+    "score": -0.059091543626172076
+  },
+  {
+    "rank": 8,
+    "id": "PAY-0000118",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $639 Veteran's payment → estimated $96 improper exposure, $62 projected recovery if investigated. Recommend release: single weak signal; citizen-delay cost of holding a likely-legitimate payment outweighs the low projected recovery.",
+    "score": -0.059091543626172076
+  },
+  {
+    "rank": 9,
+    "id": "PAY-0000198",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $672 Veteran's payment → estimated $101 improper exposure, $65 projected recovery if investigated. Recommend hold-for-verification: verification (~$10 delay cost over 3 days) confirms before disbursement. If improper, recovery is preserved pre-disbursement.",
+    "score": -0.059091543626172076
+  },
+  {
+    "rank": 10,
+    "id": "PAY-0000698",
+    "reasoning": "Moderate-risk: 1 fraud signal(s) on a $642 Veteran's payment → estimated $96 improper exposure, $63 projected recovery if investigated. Recommend release: single weak signal; citizen-delay cost of holding a likely-legitimate payment outweighs the low projected recovery.",
+    "score": -0.059091543626172076
+  }
+]

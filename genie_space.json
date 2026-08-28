@@ -5,8 +5,8 @@
       {"id": "10000000000000000000000000000001", "question": ["How much improper-payment exposure are we at risk of in the current queue, and how many flagged cases do we have?"]},
       {"id": "10000000000000000000000000000002", "question": ["Break down the improper-payment exposure and flagged case count by risk level."]},
       {"id": "10000000000000000000000000000003", "question": ["Which benefit programs carry the highest improper-payment risk?"]},
-      {"id": "10000000000000000000000000000004", "question": ["Payment PAY-0000214 is flagged — how many fraud signals does it carry, and what's the recommended disposition?"]},
-      {"id": "10000000000000000000000000000005", "question": ["What's the best disposition for Payment PAY-0000214, and how much could we recover if we investigate?"]},
+      {"id": "10000000000000000000000000000004", "question": ["Why is TANF Payment PAY-0000202 in Minnesota flagged, and what's the recommended disposition?"]},
+      {"id": "10000000000000000000000000000005", "question": ["For Payment PAY-0000202, compare its $2,582.18 exposure with predicted recovery and explain the recommended hold duration."]},
       {"id": "10000000000000000000000000000006", "question": ["Across all flagged cases, how many are recommended for each disposition, and what's the projected recovery by disposition?"]},
       {"id": "10000000000000000000000000000007", "question": ["Which fraud signals are most common in high-risk cases?"]}
     ]
@@ -39,13 +39,13 @@
       },
       {
         "id": "20000000000000000000000000000004",
-        "question": ["Payment PAY-0000214 is flagged — how many fraud signals does it carry, and what's the recommended disposition?"],
-        "sql": ["SELECT q.payment_id, q.program, q.risk_level, q.n_signals, q.signal_list,\n", "  ROUND(q.improper_payment_exposure_usd) AS improper_exposure_usd, r.recommended_disposition\n", "FROM solution_builder.sentinel_ipp.gold_open_queue q\n", "JOIN solution_builder.sentinel_ipp.gold_disposition_recommendations r USING (payment_id)\n", "WHERE q.payment_id = 'PAY-0000214'"]
+        "question": ["Why is TANF Payment PAY-0000202 in Minnesota flagged, and what's the recommended disposition?"],
+        "sql": ["SELECT q.payment_id, q.program, q.state, q.payment_amount_usd, q.risk_level, q.n_signals, q.signal_list,\n", "  ROUND(q.improper_payment_exposure_usd, 2) AS improper_exposure_usd,\n", "  r.recommended_disposition, r.recommended_hold_hours\n", "FROM solution_builder.sentinel_ipp.gold_open_queue q\n", "JOIN solution_builder.sentinel_ipp.gold_disposition_recommendations r USING (payment_id)\n", "WHERE q.payment_id = 'PAY-0000202'"]
       },
       {
         "id": "20000000000000000000000000000005",
-        "question": ["What's the best disposition for Payment PAY-0000214, and how much could we recover if we investigate?"],
-        "sql": ["SELECT payment_id, recommended_disposition, confidence_score,\n", "  ROUND(projected_recovery_if_investigated_usd) AS projected_recovery_usd, reasoning\n", "FROM solution_builder.sentinel_ipp.gold_disposition_recommendations\n", "WHERE payment_id = 'PAY-0000214'"]
+        "question": ["For Payment PAY-0000202, compare its $2,582.18 exposure with predicted recovery and explain the recommended hold duration."],
+        "sql": ["SELECT q.payment_id, ROUND(q.improper_payment_exposure_usd, 2) AS improper_exposure_usd,\n", "  r.recommended_disposition, r.recommended_hold_hours,\n", "  ROUND(r.predicted_recovery_usd, 2) AS predicted_recovery_usd, r.reasoning\n", "FROM solution_builder.sentinel_ipp.gold_open_queue q\n", "JOIN solution_builder.sentinel_ipp.gold_disposition_recommendations r USING (payment_id)\n", "WHERE q.payment_id = 'PAY-0000202'"]
       },
       {
         "id": "20000000000000000000000000000006",
@@ -67,7 +67,7 @@
           "WHAT TO HELP DELLA DO: For each point of improper-payment rate prevented pre-disbursement, the agency keeps ~$600M/yr. Help her (1) size the improper-payment exposure in the queue, (2) find where it concentrates (risk level, program, signal type), (3) get the prescribed disposition for a specific payment — release / hold_for_verification / refer_to_investigation — before funds disburse.\n",
           "BASELINES: A healthy payment carries 0 fraud signals. risk_level is the single risk signal: 'high' (2+ signals incl. a strong one), 'moderate' (1 signal), 'low' (weak-only). Strong signals: duplicate_identity, deceased_payee, cross_agency_fraud_flag.\n",
           "HEADLINE NUMBERS — always answer from mv_payment_risk (same definitions as the dashboard tiles): improper-payment exposure = MEASURE(`improper_payment_exposure_usd`); flagged count = MEASURE(`flagged_payment_count`); queue value = MEASURE(`total_queue_value_usd`); disposition counts = MEASURE(`release_recommended_count`) / MEASURE(`hold_recommended_count`) / MEASURE(`investigate_recommended_count`).\n",
-          "PER-PAYMENT detail (signals, risk, exposure, recommendation) comes from gold_open_queue joined to gold_disposition_recommendations on payment_id. The hero payment is PAY-0000214 (TANF, $1,850, 2 strong signals) → prescribed hold_for_verification.\n",
+          "PER-PAYMENT detail (signals, risk, exposure, recommendation) comes from gold_open_queue joined to gold_disposition_recommendations on payment_id. The live hero is PAY-0000202 (TANF, MN, $3,227.73) with cross_agency_fraud_flag + income_mismatch, ~$2,582.18 improper-payment exposure, and about $1,678 predicted recovery. The current heuristic recommends hold_for_verification for 72 hours; the examiner approved a 48-hour hold. Distinguish the model/heuristic recommendation from the human-approved duration.\n",
           "TONE: concise, decision-oriented, dollars-first. After answering, offer the next step (rank the disposition for a payment, or show the investigation backlog)."
         ]
       }

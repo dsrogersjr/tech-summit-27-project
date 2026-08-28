@@ -1,0 +1,205 @@
+{
+  "source_file": "sentinel_workspace_usage.lvdash.json",
+  "pages": [
+    {
+      "id": "5879f9e7",
+      "displayName": "Usage Overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "widget_count": 11
+    },
+    {
+      "id": "213392c8",
+      "displayName": "Usage Overview - Top N",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "widget_count": 10
+    },
+    {
+      "id": "096c54ee",
+      "displayName": "Usage Analysis - Tag Matching",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "widget_count": 21
+    },
+    {
+      "id": "e94f9247",
+      "displayName": "Usage Analysis - Top Objects",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "widget_count": 12
+    },
+    {
+      "id": "c7aaecc0",
+      "displayName": "README",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "widget_count": 1
+    },
+    {
+      "id": "c57685b8",
+      "displayName": "Global Filters",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "widget_count": 8
+    }
+  ],
+  "datasets": [
+    {
+      "id": "cd4e3c97",
+      "displayName": "select_yes_no_tag_show_mismatch",
+      "sql_chars": 88,
+      "has_parameters": false
+    },
+    {
+      "id": "46222f11",
+      "displayName": "select_dbus_dollars_toggle",
+      "sql_chars": 56,
+      "has_parameters": false
+    },
+    {
+      "id": "2733d12f",
+      "displayName": "select_time_key_overview",
+      "sql_chars": 88,
+      "has_parameters": false
+    },
+    {
+      "id": "078fbf24",
+      "displayName": "select_group_key",
+      "sql_chars": 58,
+      "has_parameters": false
+    },
+    {
+      "id": "c93a48f4",
+      "displayName": "select_tag_key",
+      "sql_chars": 875,
+      "has_parameters": true
+    },
+    {
+      "id": "f768db5b",
+      "displayName": "select_rank_key",
+      "sql_chars": 1487,
+      "has_parameters": true
+    },
+    {
+      "id": "eb49bbaa",
+      "displayName": "select_serverless_flag",
+      "sql_chars": 74,
+      "has_parameters": false
+    },
+    {
+      "id": "a5da9d48",
+      "displayName": "select_billing_origin_product",
+      "sql_chars": 106,
+      "has_parameters": false
+    },
+    {
+      "id": "988516d6",
+      "displayName": "select_tag_group",
+      "sql_chars": 103,
+      "has_parameters": false
+    },
+    {
+      "id": "629a2ebe",
+      "displayName": "select_tag_agg_toggle",
+      "sql_chars": 64,
+      "has_parameters": false
+    },
+    {
+      "id": "8b6b5367",
+      "displayName": "select_tag_agg_top_tags",
+      "sql_chars": 76,
+      "has_parameters": false
+    },
+    {
+      "id": "deb49646",
+      "displayName": "select_tag_search_mode",
+      "sql_chars": 53,
+      "has_parameters": false
+    },
+    {
+      "id": "bb990f09",
+      "displayName": "select_include_remaining",
+      "sql_chars": 50,
+      "has_parameters": false
+    },
+    {
+      "id": "2b5e3641",
+      "displayName": "select_case_sensitivity",
+      "sql_chars": 50,
+      "has_parameters": false
+    },
+    {
+      "id": "17558292",
+      "displayName": "select_feature_flag_toggle",
+      "sql_chars": 60,
+      "has_parameters": false
+    },
+    {
+      "id": "1100555f",
+      "displayName": "select_account_prices_toggle",
+      "sql_chars": 100,
+      "has_parameters": false
+    },
+    {
+      "id": "eb3d55f9",
+      "displayName": "select_enable_links_toggle",
+      "sql_chars": 60,
+      "has_parameters": false
+    },
+    {
+      "id": "6b9e03f6",
+      "displayName": "usage_overview",
+      "sql_chars": 5258,
+      "has_parameters": true
+    },
+    {
+      "id": "e1dac524",
+      "displayName": "usage_forecast",
+      "sql_chars": 11108,
+      "has_parameters": true
+    },
+    {
+      "id": "f14c46e1",
+      "displayName": "usage_overview_pop_matrix",
+      "sql_chars": 14465,
+      "has_parameters": true
+    },
+    {
+      "id": "a28f5b19",
+      "displayName": "tag_analysis_top_tags",
+      "sql_chars": 5502,
+      "has_parameters": true
+    },
+    {
+      "id": "d61a4eeb",
+      "displayName": "tag_analysis_summary",
+      "sql_chars": 8906,
+      "has_parameters": true
+    },
+    {
+      "id": "437db86b",
+      "displayName": "tag_analysis_pop_matrix",
+      "sql_chars": 19574,
+      "has_parameters": true
+    },
+    {
+      "id": "450b2674",
+      "displayName": "tag_analysis_match_details",
+      "sql_chars": 27318,
+      "has_parameters": true
+    },
+    {
+      "id": "03f6453c",
+      "displayName": "top_spending_assets_summary",
+      "sql_chars": 5817,
+      "has_parameters": true
+    },
+    {
+      "id": "21de1797",
+      "displayName": "top_spending_assets_pop_matrix",
+      "sql_chars": 20193,
+      "has_parameters": true
+    },
+    {
+      "id": "976395d6",
+      "displayName": "contract_burndown",
+      "sql_chars": 5602,
+      "has_parameters": true
+    }
+  ]
+}
