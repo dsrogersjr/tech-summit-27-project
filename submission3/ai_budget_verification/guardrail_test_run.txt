@@ -1,0 +1,5 @@
+ RUN  v4.1.9 /Users/doug.rogers/dev/tech-summit-27-project/app
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  14:12:16
+   Duration  148ms (transform 16ms, setup 0ms, import 22ms, tests 3ms, environment 0ms)

@@ -1,0 +1,55 @@
+{
+  "report_period": "2026-08-01 .. 2026-08-28",
+  "workspace_id": "7474651808472462",
+  "workspace": "tech_summit_27_sentenel (fe-sandbox-tech-summit-27-doug)",
+  "generated": "2026-08-28",
+  "source_tables": [
+    "system.billing.usage",
+    "system.billing.list_prices",
+    "system.serving.endpoint_usage",
+    "system.serving.served_entities",
+    "tech_summit_27_sentenel.dev_doug_rogers_sentinel_ipp.sentinel_agent_llm_payload"
+  ],
+  "streams": {
+    "app_agent": {
+      "what": "Sentinel Payment Integrity app -> governed endpoint sentinel-agent-llm -> databricks-gpt-5-4; plus gte-large-en embeddings for Lakebase semantic search.",
+      "governance": "Unity AI Gateway on sentinel-agent-llm (inference table + usage tracking enabled).",
+      "captured_in": "system.serving.endpoint_usage (this workspace)",
+      "endpoints": [
+        { "endpoint": "sentinel-agent-llm", "type": "EXTERNAL_MODEL", "task": "llm/v1/chat", "requests": 3, "input_tokens": 60, "output_tokens": 123 },
+        { "endpoint": "databricks-gpt-5-4", "type": "FOUNDATION_MODEL", "task": "llm/v1/responses", "requests": 25, "input_tokens": 48906, "output_tokens": 4213 },
+        { "endpoint": "databricks-gte-large-en", "type": "FOUNDATION_MODEL", "task": "llm/v1/embeddings", "requests": 45, "input_tokens": 2882, "output_tokens": 0 }
+      ],
+      "model_serving_spend_usd": 0.12,
+      "inference_table_rows_logged": 1
+    },
+    "coding_agent": {
+      "what": "Claude Code onboarded via `ucode` and routed through the Unity AI Gateway (/ai-gateway/anthropic), UC-governed system.ai.claude-* models.",
+      "governance": "Per-request token minting (no secret on disk); rate-limited + tracked by the central gateway.",
+      "captured_in": "Central Unity AI Gateway account/system tables (ai_devtools) — NOT this workspace's serving tables. Verified: no doug.rogers claude usage appears under workspace 7474651808472462.",
+      "workspace_footprint": "AI_GATEWAY billing line present (0.004 DBUs) — gateway overhead attributed locally.",
+      "evidence": "../agent_mcp/EVIDENCE.md, ../agent_mcp/ucode_status.txt, ../agent_mcp/claude_ucode_settings.json"
+    },
+    "mcp": {
+      "what": "system.ai.slack MCP registered to Claude Code via `ucode configure mcp`.",
+      "governance": "Gateway-proxied (auth: proxy), read-only Slack tools.",
+      "captured_in": "MCP tool calls are gateway-proxied API calls, not token-metered LLM inference, so they do not surface in system.serving.endpoint_usage; governed through the same Unity AI Gateway.",
+      "evidence": "../agent_mcp/EVIDENCE.md, ../agent_mcp/mcp_servers.json, ../agent_mcp/slack_mcp_tools.json"
+    }
+  },
+  "cost_by_product_usd": {
+    "GENIE": 14.74,
+    "LAKEBASE": 13.10,
+    "APPS": 8.35,
+    "INTERACTIVE": 5.55,
+    "SQL": 4.64,
+    "JOBS": 0.43,
+    "DLT": 0.24,
+    "MODEL_SERVING": 0.12,
+    "DEFAULT_STORAGE": 0.02,
+    "NETWORKING": 0.01,
+    "AI_GATEWAY": 0.00,
+    "total": 47.20
+  },
+  "dashboard": "dashboards.sentinel_workspace_usage (DAB) -> sentinel_workspace_usage.lvdash.json; 6 pages / 27 datasets over system.billing.usage."
+}

@@ -1,0 +1,35 @@
+[
+  {
+    "endpoint_name": "databricks-gte-large-en",
+    "entity_type": "FOUNDATION_MODEL",
+    "first_request": "2026-08-28T15:25:30.254Z",
+    "input_tokens": "2882",
+    "last_request": "2026-08-28T15:27:20.668Z",
+    "output_tokens": "0",
+    "requesters": "1",
+    "requests": "45",
+    "task": "llm/v1/embeddings"
+  },
+  {
+    "endpoint_name": "databricks-gpt-5-4",
+    "entity_type": "FOUNDATION_MODEL",
+    "first_request": "2026-08-27T20:28:08.800Z",
+    "input_tokens": "48906",
+    "last_request": "2026-08-28T17:09:59.602Z",
+    "output_tokens": "4213",
+    "requesters": "2",
+    "requests": "25",
+    "task": "llm/v1/responses"
+  },
+  {
+    "endpoint_name": "sentinel-agent-llm",
+    "entity_type": "EXTERNAL_MODEL",
+    "first_request": "2026-08-28T16:54:44.762Z",
+    "input_tokens": "60",
+    "last_request": "2026-08-28T17:09:59.491Z",
+    "output_tokens": "123",
+    "requesters": "1",
+    "requests": "3",
+    "task": "llm/v1/chat"
+  }
+]

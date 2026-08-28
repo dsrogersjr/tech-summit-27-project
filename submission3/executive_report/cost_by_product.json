@@ -1,0 +1,57 @@
+[
+  {
+    "billing_origin_product": "GENIE",
+    "dbus": "376.273",
+    "usd": "14.74"
+  },
+  {
+    "billing_origin_product": "LAKEBASE",
+    "dbus": "50.408",
+    "usd": "13.10"
+  },
+  {
+    "billing_origin_product": "APPS",
+    "dbus": "8.787",
+    "usd": "8.35"
+  },
+  {
+    "billing_origin_product": "INTERACTIVE",
+    "dbus": "5.840",
+    "usd": "5.55"
+  },
+  {
+    "billing_origin_product": "SQL",
+    "dbus": "6.632",
+    "usd": "4.64"
+  },
+  {
+    "billing_origin_product": "JOBS",
+    "dbus": "0.963",
+    "usd": "0.43"
+  },
+  {
+    "billing_origin_product": "DLT",
+    "dbus": "0.529",
+    "usd": "0.24"
+  },
+  {
+    "billing_origin_product": "MODEL_SERVING",
+    "dbus": "1.716",
+    "usd": "0.12"
+  },
+  {
+    "billing_origin_product": "DEFAULT_STORAGE",
+    "dbus": "0.734",
+    "usd": "0.02"
+  },
+  {
+    "billing_origin_product": "NETWORKING",
+    "dbus": "0.126",
+    "usd": "0.01"
+  },
+  {
+    "billing_origin_product": "AI_GATEWAY",
+    "dbus": "0.004",
+    "usd": "0.00"
+  }
+]
