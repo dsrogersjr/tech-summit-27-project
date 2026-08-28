@@ -1,0 +1,15 @@
+* 5fe7265 (HEAD -> feat/act-closed-loop-case-action) Implement Assist + Act agent tools (Build 2/3): find_flag, rank_dispositions, execute_case_action
+* 1ce7652 (origin/dev, dev) Declare Gold→Lakebase SNAPSHOT synced tables in the DAB.
+* 60929e8 Add submission1 evidence: agentic-dev diff/migration, sync, branching, search, schema, domain-question
+* 98422cd submission1
+| *   6efe430 (origin/main, origin/HEAD, main) Merge branch 'dev' into main
+| |\  
+| |/  
+|/|   
+* | 0ed6aa6 (origin/table-rename, table-rename) Add script to rename the disposition_recommendations table
+* | 7dc9b78 rename long table name disposition_recommendations
+|/  
+* 861be91 (origin/update-dab-instructions, update-dab-instructions) Record the workspace deploy IDs and Lakebase grant command.
+* fb71fcc (origin/fix_setup, fix_setup) Point the bundle default catalog at tech_summit_27_sentenel.
+* 7374c38 add missing setup files
+* 6492768 Add Sentinel improper-payment prevention demo project.

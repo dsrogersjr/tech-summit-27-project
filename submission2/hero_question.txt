@@ -1,0 +1,54 @@
+HERO QUESTION (examiner voice)
+==============================
+
+"PAY-0000202 is at the top of my queue — why is it flagged, what should we do
+about it, and record the decision."
+
+This one question exercises the full Assist → Act → closed-loop chain: the agent
+explains the flag (Assist / find_flag), quotes the model's recommendation and a
+release-vs-hold what-if (Assist / rank_dispositions), drafts the hold memo, and
+— after the examiner approves — writes the disposition back to the writable
+Postgres table (Act / execute_case_action), which the queue then reflects on the
+next read.
+
+
+DECISION CHAIN — linked record IDs across the exports
+=====================================================
+
+payment_id: PAY-0000202   (TANF · MN · $3,227.73 · signals: cross_agency_fraud_flag, income_mismatch · risk high · improper exposure $2,582.18)
+  │
+  ├─ Recommendation (app.dispo_recs, keyed by payment_id = PAY-0000202)
+  │     recommended_disposition = hold_for_verification
+  │     recommended_hold_hours  = 72
+  │     predicted_recovery_usd  = 1678.42
+  │     predicted_cost_usd      = 48.42
+  │     → surfaced in view_query.sql / view_result.json (recommended_disposition)
+  │     → quoted in the assist_log.jsonl explanation + what-if
+  │     → basis for drafted_sample.md
+  │
+  ├─ Drafted memo (drafted_sample.md)
+  │     the auto-drafted hold-for-verification memo the examiner reviewed
+  │
+  ├─ Recorded decision — the WRITE (app.case_actions)
+  │     case_action_id = 37f0ba5e-d5f6-4dac-971e-21a8f3c9371e
+  │     proposed_action = hold_for_verification · hold 48h
+  │     approval_status = approved
+  │     approver        = doug.rogers@databricks.com
+  │     created_at / committed_at = 2026-08-28T14:25:26.336Z
+  │     → export: writeback_table.json
+  │     NOTE: the examiner approved a 48h hold, SHORTER than the model's 72h
+  │           recommendation — a human correction captured at approval time.
+  │
+  ├─ Workflow-state / observability (state_table.json)
+  │     conversation_id = 0e43ee92-090e-4f08-bd79-1c60e447729d  (app.conversations)
+  │     8 message turns (app.messages) + the 1 recorded decision (app.case_actions),
+  │     chronological, each with a timestamp
+  │
+  └─ Closed-loop read-back (view_query.sql → view_result.json)
+        PAY-0000202 now shows live_disposition = hold_for_verification,
+        action_status = approved, approved_by = doug.rogers@databricks.com.
+        Every still-open payment shows NULL live_disposition.
+
+The single key PAY-0000202 ties together: view_query.sql / view_result.json,
+writeback_table.json, drafted_sample.md, state_table.json — and links back to the
+model recommendation in app.dispo_recs.

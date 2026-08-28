@@ -1,0 +1,122 @@
+[
+  {
+    "payment_id": "PAY-0000202",
+    "program": "TANF",
+    "state": "MN",
+    "improper_payment_exposure_usd": "2582.18",
+    "risk_level": "high",
+    "recommended_disposition": "hold_for_verification",
+    "live_disposition": "hold_for_verification",
+    "action_status": "approved",
+    "approved_by": "doug.rogers@databricks.com",
+    "decided_at": "2026-08-28T14:25:26.336Z"
+  },
+  {
+    "payment_id": "PAY-0000827",
+    "program": "SNAP",
+    "state": "MD",
+    "improper_payment_exposure_usd": "1094.97",
+    "risk_level": "high",
+    "recommended_disposition": "hold_for_verification",
+    "live_disposition": null,
+    "action_status": null,
+    "approved_by": null,
+    "decided_at": null
+  },
+  {
+    "payment_id": "PAY-0000677",
+    "program": "TANF",
+    "state": "GA",
+    "improper_payment_exposure_usd": "501.23",
+    "risk_level": "moderate",
+    "recommended_disposition": "hold_for_verification",
+    "live_disposition": null,
+    "action_status": null,
+    "approved_by": null,
+    "decided_at": null
+  },
+  {
+    "payment_id": "PAY-0000779",
+    "program": "Veteran's",
+    "state": "NC",
+    "improper_payment_exposure_usd": "475.84",
+    "risk_level": "moderate",
+    "recommended_disposition": "release",
+    "live_disposition": null,
+    "action_status": null,
+    "approved_by": null,
+    "decided_at": null
+  },
+  {
+    "payment_id": "PAY-0000636",
+    "program": "TANF",
+    "state": "CO",
+    "improper_payment_exposure_usd": "474.02",
+    "risk_level": "moderate",
+    "recommended_disposition": "hold_for_verification",
+    "live_disposition": null,
+    "action_status": null,
+    "approved_by": null,
+    "decided_at": null
+  },
+  {
+    "payment_id": "PAY-0000839",
+    "program": "Veteran's",
+    "state": "SC",
+    "improper_payment_exposure_usd": "468.86",
+    "risk_level": "moderate",
+    "recommended_disposition": "release",
+    "live_disposition": null,
+    "action_status": null,
+    "approved_by": null,
+    "decided_at": null
+  },
+  {
+    "payment_id": "PAY-0000082",
+    "program": "Disability",
+    "state": "WI",
+    "improper_payment_exposure_usd": "437.96",
+    "risk_level": "moderate",
+    "recommended_disposition": "release",
+    "live_disposition": null,
+    "action_status": null,
+    "approved_by": null,
+    "decided_at": null
+  },
+  {
+    "payment_id": "PAY-0000791",
+    "program": "Disability",
+    "state": "OK",
+    "improper_payment_exposure_usd": "429.23",
+    "risk_level": "moderate",
+    "recommended_disposition": "release",
+    "live_disposition": null,
+    "action_status": null,
+    "approved_by": null,
+    "decided_at": null
+  },
+  {
+    "payment_id": "PAY-0000889",
+    "program": "Child Care",
+    "state": "CO",
+    "improper_payment_exposure_usd": "415.65",
+    "risk_level": "moderate",
+    "recommended_disposition": "release",
+    "live_disposition": null,
+    "action_status": null,
+    "approved_by": null,
+    "decided_at": null
+  },
+  {
+    "payment_id": "PAY-0000149",
+    "program": "Veteran's",
+    "state": "MI",
+    "improper_payment_exposure_usd": "412.07",
+    "risk_level": "moderate",
+    "recommended_disposition": "release",
+    "live_disposition": null,
+    "action_status": null,
+    "approved_by": null,
+    "decided_at": null
+  }
+]
