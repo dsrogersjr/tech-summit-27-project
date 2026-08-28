@@ -31,7 +31,7 @@ const asActionStatus = (v: string | null): ActionStatus | null =>
 // PaymentRow — the Operations queue's primary entity. Reads the synced
 // read-only queue mirror (payment_position / gold_queue_scored), LEFT JOIN-ed
 // to its LATEST case_actions row (so `live_disposition` / `action_status`
-// reflect the writable table) and to disposition_recommendations (the model's
+// reflect the writable table) and to dispo_recs (the model's
 // recommended disposition per flagged payment).
 // ============================================================================
 
@@ -90,7 +90,7 @@ function toPaymentRow(r: PaymentSqlRow): PaymentRow {
 
 // SELECT list shared by list + single-payment reads. Reads payment_position
 // (the synced queue mirror), LEFT JOIN-ing:
-//   - disposition_recommendations → the model's recommended disposition,
+//   - dispo_recs → the model's recommended disposition,
 //   - the LATEST case_actions row for that payment (DISTINCT via LATERAL) →
 //     the live disposition badge + "case in progress".
 const PAYMENT_SELECT = sql`
@@ -103,7 +103,7 @@ const PAYMENT_SELECT = sql`
     la.action_type AS live_disposition,
     la.status AS action_status
   FROM app.payment_position p
-  LEFT JOIN app.disposition_recommendations dr
+  LEFT JOIN app.dispo_recs dr
     ON dr.payment_id = p.payment_id
   LEFT JOIN LATERAL (
     SELECT a.action_type, a.status
@@ -267,7 +267,7 @@ export async function getRecommendation(
   const res = await db.execute(sql`
     SELECT payment_id, recommended_disposition, recommended_hold_hours,
            predicted_recovery_usd, predicted_cost_usd, action_ranking
-    FROM app.disposition_recommendations
+    FROM app.dispo_recs
     WHERE payment_id = ${paymentId}
     LIMIT 1
   `);
@@ -393,7 +393,7 @@ export async function queueSummary(db: AppDb): Promise<QueueSummary> {
       )::int AS refer_recommended_count
     FROM app.payment_position p
     LEFT JOIN acted a ON a.payment_id = p.payment_id
-    LEFT JOIN app.disposition_recommendations dr ON dr.payment_id = p.payment_id
+    LEFT JOIN app.dispo_recs dr ON dr.payment_id = p.payment_id
   `);
   const r = (res.rows[0] ?? {}) as {
     improper_payment_exposure_usd: number | string;

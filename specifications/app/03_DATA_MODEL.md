@@ -25,7 +25,7 @@ All tables live in `{lakebase_branch_name}.public` (the default Postgres schema)
 
 **Indexes:** `payment_id`, `program`, `risk_level`.
 
-> The examiner's live disposition + status come from the writable `case_actions` table (LEFT JOIN on the latest action per payment), and the recommended disposition from `disposition_recommendations` — NOT stored on this mirror. The queue read (`server/db/queries/cases.ts`) joins all three.
+> The examiner's live disposition + status come from the writable `case_actions` table (LEFT JOIN on the latest action per payment), and the recommended disposition from `dispo_recs` — NOT stored on this mirror. The queue read (`server/db/queries/cases.ts`) joins all three.
 
 ### 2. `open_queue` (read-only, synced from UC Delta `gold_open_queue`)
 
@@ -41,7 +41,7 @@ One row per flagged payment; the flag context the agent's discovery tools read. 
 
 **Indexes:** `payment_id`.
 
-### 3. `disposition_recommendations` (read-only, synced from UC Delta `gold_disposition_recommendations`)
+### 3. `dispo_recs` (read-only, synced from UC Delta `gold_disposition_recommendations`)
 
 One row per flagged payment; the pipeline heuristic's prescribed disposition. Synced by `server/db/sync.ts`. `predicted_recovery_usd` maps from the gold `projected_recovery_if_investigated_usd`; `predicted_cost_usd` from `citizen_delay_cost_usd`.
 
@@ -98,14 +98,14 @@ The app writes to this table after examiner approval. One row per approved case 
 
 ## Sync strategy
 
-**Synced tables (read-only):** `payment_position`, `disposition_recommendations`, `payment_fraud_flags` are **Lakebase Synced Tables** — UC Delta tables are continuously replicated to Postgres. Configuration lives in the Lakebase branch spec; the app doesn't manage sync. Sync latency is ~10s (configurable).
+**Synced tables (read-only):** `payment_position`, `dispo_recs`, `payment_fraud_flags` are **Lakebase Synced Tables** — UC Delta tables are continuously replicated to Postgres. Configuration lives in the Lakebase branch spec; the app doesn't manage sync. Sync latency is ~10s (configurable).
 
 **Writable table:** `case_actions` is app-created (not synced). The app writes here; a separate pipeline can read `case_actions` from Lakebase's Postgres and write back to UC Delta as a UC Table if audit trails are needed. For the demo, no write-back — the app's actions are logged to UC via MLflow traces + Unity AI Gateway inference logging.
 
 ## Bootstrap flow (on app start)
 
 1. **Check Lakebase connectivity** — resolve `{lakebase_branch}` branch connection URI from environment (`LAKEBASE_BRANCH_URL` or `.env`).
-2. **Verify synced tables exist** — query `information_schema.tables` for `payment_position`, `disposition_recommendations`, `payment_fraud_flags`. If absent, fail with a clear error pointing to `README.md` Milestone 2.
+2. **Verify synced tables exist** — query `information_schema.tables` for `payment_position`, `dispo_recs`, `payment_fraud_flags`. If absent, fail with a clear error pointing to `README.md` Milestone 2.
 3. **Create writable tables if absent** — run migrations to create `case_actions` + `reference_playbook` (idempotent CREATE TABLE IF NOT EXISTS).
 4. **Create Lakebase Search index** (optional, if not already present) — index `reference_playbook` for hybrid text/vector search on `signal_type` + `verification_steps`.
 5. **Test a read** — `SELECT COUNT(*) FROM payment_position` to confirm connectivity.
@@ -117,7 +117,7 @@ For local development (not demo-in-workspace):
 
 **Option A: Mock data (fast)**
 - `app/server/db/schema.ts` defines tables.
-- `app/server/db/mock.ts` seeds fake `payment_position` + `disposition_recommendations` + `case_actions` in-memory or SQLite.
+- `app/server/db/mock.ts` seeds fake `payment_position` + `dispo_recs` + `case_actions` in-memory or SQLite.
 - `app/.env` sets `USE_MOCK_DB=true`.
 
 **Option B: Real Lakebase branch (recommended for final validation)**
@@ -130,8 +130,8 @@ For local development (not demo-in-workspace):
 
 **Before shipping:**
 - `SELECT COUNT(*) FROM payment_position` returns >0 (synced data present).
-- `SELECT COUNT(*) FROM disposition_recommendations` returns >0.
+- `SELECT COUNT(*) FROM dispo_recs` returns >0.
 - `SELECT * FROM case_actions LIMIT 1` works (table exists, even if empty).
 - Insert a test `case_actions` row (manual SQL or app action) → read it back → confirm write works.
-- `payment_position` + `disposition_recommendations` are readable (read-only constraint enforced at Postgres level via view or role).
-- Hero payment `PAY-0000214` exists in `payment_position` with `risk_level = 'high'` and a matching row in `disposition_recommendations`.
+- `payment_position` + `dispo_recs` are readable (read-only constraint enforced at Postgres level via view or role).
+- Hero payment `PAY-0000214` exists in `payment_position` with `risk_level = 'high'` and a matching row in `dispo_recs`.

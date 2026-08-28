@@ -1,6 +1,6 @@
 // One-off maintenance: drop the Lakebase `app` schema so the next boot's
 // migration recreates it cleanly. Needed after the mirror schema changed
-// (payment_position/open_queue/disposition_recommendations columns) and the
+// (payment_position/open_queue/dispo_recs columns) and the
 // old tables would otherwise collide with the fresh CREATE TABLE migration.
 //
 // Run once:  npx tsx --env-file-if-exists=./.env scripts/reset_app_schema.ts

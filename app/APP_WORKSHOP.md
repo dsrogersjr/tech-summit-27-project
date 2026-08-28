@@ -25,7 +25,7 @@ The app mirrors these Gold tables into Lakebase Postgres (`app.*`) at boot (see 
 |---|---|---|---|
 | `payment_position` | `gold_queue_scored` | yes (synced) | `id`(=`payment_id:signal_type`), `payment_id`, `payment_amount`, `signal_type`, `signal_name`, `category`, `risk_level`, `improper_payment_exposure_usd`, `flag_risk_score`, `flag_frequency`, `recommended_disposition`, `hold_duration_hours`, `flag_status` (`flagged`/`verified`/`cleared`/`escalated`) |
 | `open_queue` | `gold_open_queue` | yes (synced) | `payment_id`, `signal_type`, `improper_payment_exposure_usd`, `risk_level`, `signal_list`, `flag_frequency`, `hold_duration_hours` |
-| `disposition_recommendations` | `gold_disposition_recommendations` | yes (synced) | `payment_id`, `signal_type`, `recommended_disposition`, `recommended_hold_hours`, `predicted_recovery_usd`, `predicted_cost_usd`, `action_ranking` (JSONB: all three options) |
+| `dispo_recs` | `gold_disposition_recommendations` | yes (synced) | `payment_id`, `signal_type`, `recommended_disposition`, `recommended_hold_hours`, `predicted_recovery_usd`, `predicted_cost_usd`, `action_ranking` (JSONB: all three options) |
 | **`case_actions`** | — (the app's own) | **NO — writable** | `id`(uuid), `payment_id`, `signal_type`, `action_type`, `hold_duration_hours`, `drafted_request`, `predicted_recovery_usd`, `status`, `approved_by`, `reviewed_by_role`, `audit_trail`(jsonb), `created_at`, `decided_at` |
 
 > **`gold_disposition_recommendations` is NOT built yet.** It is produced by the ML step of Build 2 (`specifications/03-ml-disposition.md`). The app tolerates it being absent — `server/db/sync.ts` catches `TABLE_OR_VIEW_NOT_FOUND` and leaves that mirror empty, so the app boots and the Visualize layer works. **Once you build + score the model into `gold_disposition_recommendations`, restart the app (or hit the Reset-demo button) and the mirror fills.** Then `rank_dispositions` (below) returns real data.
@@ -89,7 +89,7 @@ Read the ML model's ranked dispositions — **the demo's "ML in the loop" moment
 
 - **File:** `server/agent/caseops.ts`, the tool named `rank_dispositions`.
 - **Signature (already declared):** `rank_dispositions({ payment_id: string, signal_type: string })`.
-- **Lakebase helper to use:** `getDisposition(ctx.db, paymentId, signalType)` → `DispositionRecommendation | null` — reads `app.disposition_recommendations` (mirrored from `gold_disposition_recommendations`).
+- **Lakebase helper to use:** `getDisposition(ctx.db, paymentId, signalType)` → `DispositionRecommendation | null` — reads `app.dispo_recs` (mirrored from `gold_disposition_recommendations`).
 - **Expected tool output shape:**
   ```
   {

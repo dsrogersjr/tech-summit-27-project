@@ -18,11 +18,11 @@ import {
  * Pulls the three READ-ONLY Gold mirrors:
  *   - payment_position         (the flagged payments + flagged count)
  *   - open_queue               (open flag + risk metrics)
- *   - disposition_recommendations (the ML model's ranked dispositions)
+ *   - dispo_recs (the ML model's ranked dispositions)
  *
  * `case_actions` is the app's own WRITABLE table — never synced, starts empty.
  *
- * The disposition_recommendations table is BUILT BY THE TRAINEE (the ML step of
+ * The dispo_recs table is BUILT BY THE TRAINEE (the ML step of
  * the workshop). So its query is fault-tolerant: if the table doesn't exist
  * yet, we log + leave the mirror empty rather than failing boot.
  *
@@ -127,7 +127,7 @@ export async function syncFromDelta(
           // Visualize layer works; the agent's rank tool is the trainee's
           // Build-2 task anyway.
           console.warn(
-            `[sync] disposition_recommendations not available yet (this is the trainee's ML step) — leaving that mirror empty: ${(e as Error).message}`,
+            `[sync] dispo_recs not available yet (this is the trainee's ML step) — leaving that mirror empty: ${(e as Error).message}`,
           );
           return [] as never[];
         })
@@ -254,7 +254,7 @@ export async function wipeMirroredTables(db: AppDb): Promise<void> {
     // The writable action table — the only place agent writes land.
     await tx.execute(sql`TRUNCATE TABLE app.case_actions RESTART IDENTITY CASCADE`);
     // Read-only mirrors — re-pulled by syncFromDelta after this.
-    await tx.execute(sql`TRUNCATE TABLE app.disposition_recommendations RESTART IDENTITY CASCADE`);
+    await tx.execute(sql`TRUNCATE TABLE app.dispo_recs RESTART IDENTITY CASCADE`);
     await tx.execute(sql`TRUNCATE TABLE app.open_queue RESTART IDENTITY CASCADE`);
     await tx.execute(sql`TRUNCATE TABLE app.payment_position RESTART IDENTITY CASCADE`);
   });
