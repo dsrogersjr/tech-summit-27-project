@@ -1,0 +1,138 @@
+[
+  {
+    "event_ts": "2026-08-27T20:28:08.715Z",
+    "event_kind": "message",
+    "actor": "user",
+    "payment_id": null,
+    "detail": {
+      "role": "user",
+      "tools": null,
+      "position": 0,
+      "trace_id": null,
+      "conversation": "Assistant"
+    }
+  },
+  {
+    "event_ts": "2026-08-27T20:28:17.880Z",
+    "event_kind": "tool_call",
+    "actor": "assistant",
+    "payment_id": null,
+    "detail": {
+      "role": "assistant",
+      "tools": [
+        "find_flag",
+        "rank_dispositions"
+      ],
+      "position": 1,
+      "trace_id": "no-op-span-trace-id",
+      "conversation": "Assistant"
+    }
+  },
+  {
+    "event_ts": "2026-08-27T20:41:50.243Z",
+    "event_kind": "message",
+    "actor": "user",
+    "payment_id": null,
+    "detail": {
+      "role": "user",
+      "tools": null,
+      "position": 2,
+      "trace_id": null,
+      "conversation": "Assistant"
+    }
+  },
+  {
+    "event_ts": "2026-08-27T20:42:01.541Z",
+    "event_kind": "tool_call",
+    "actor": "assistant",
+    "payment_id": null,
+    "detail": {
+      "role": "assistant",
+      "tools": [
+        "ask_data"
+      ],
+      "position": 3,
+      "trace_id": "no-op-span-trace-id",
+      "conversation": "Assistant"
+    }
+  },
+  {
+    "event_ts": "2026-08-27T20:42:14.761Z",
+    "event_kind": "message",
+    "actor": "user",
+    "payment_id": null,
+    "detail": {
+      "role": "user",
+      "tools": null,
+      "position": 4,
+      "trace_id": null,
+      "conversation": "Assistant"
+    }
+  },
+  {
+    "event_ts": "2026-08-27T20:42:29.528Z",
+    "event_kind": "tool_call",
+    "actor": "assistant",
+    "payment_id": null,
+    "detail": {
+      "role": "assistant",
+      "tools": [
+        "ask_data"
+      ],
+      "position": 5,
+      "trace_id": "no-op-span-trace-id",
+      "conversation": "Assistant"
+    }
+  },
+  {
+    "event_ts": "2026-08-27T21:25:42.906Z",
+    "event_kind": "message",
+    "actor": "user",
+    "payment_id": null,
+    "detail": {
+      "role": "user",
+      "tools": null,
+      "position": 6,
+      "trace_id": null,
+      "conversation": "Assistant"
+    }
+  },
+  {
+    "event_ts": "2026-08-27T21:26:21.785Z",
+    "event_kind": "tool_call",
+    "actor": "assistant",
+    "payment_id": null,
+    "detail": {
+      "role": "assistant",
+      "tools": [
+        "ask_data",
+        "find_flag",
+        "rank_dispositions"
+      ],
+      "position": 7,
+      "trace_id": "no-op-span-trace-id",
+      "conversation": "Assistant"
+    }
+  },
+  {
+    "event_ts": "2026-08-28T14:25:26.336Z",
+    "event_kind": "decision",
+    "actor": "doug.rogers@databricks.com",
+    "payment_id": "PAY-0000202",
+    "detail": {
+      "status": "approved",
+      "action_type": "hold_for_verification",
+      "audit_trail": [
+        {
+          "at": "2026-08-28T14:25:26.344Z",
+          "by": "doug.rogers@databricks.com",
+          "tool": "execute_case_action",
+          "notes": "Examiner-approved hold_for_verification — hold 48h.",
+          "action": "approved"
+        }
+      ],
+      "hold_duration_hours": 48,
+      "predicted_recovery_usd": 1678.42
+    }
+  }
+]

@@ -1,0 +1,25 @@
+[
+  {
+    "case_action_id": "37f0ba5e-d5f6-4dac-971e-21a8f3c9371e",
+    "payment_id": "PAY-0000202",
+    "signal_type": "cross_agency_fraud_flag",
+    "proposed_action": "hold_for_verification",
+    "hold_duration_hours": 48,
+    "drafted_request": "Hold PAY-0000202 48h for identity verification. Two strong signals (cross_agency_fraud_flag, income_mismatch) on a high-exposure TANF payment; confirm identity and the cross-agency match before disbursement.",
+    "predicted_recovery_usd": "1678.42",
+    "approval_status": "approved",
+    "approver": "doug.rogers@databricks.com",
+    "reviewed_by_role": "examiner",
+    "audit_trail": [
+      {
+        "at": "2026-08-28T14:25:26.344Z",
+        "by": "doug.rogers@databricks.com",
+        "tool": "execute_case_action",
+        "notes": "Examiner-approved hold_for_verification — hold 48h.",
+        "action": "approved"
+      }
+    ],
+    "created_at": "2026-08-28T14:25:26.336Z",
+    "committed_at": "2026-08-28T14:25:26.336Z"
+  }
+]

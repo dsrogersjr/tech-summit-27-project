@@ -16,16 +16,18 @@
  *     space if `genieSpaceId` is set. This is the trainee's Build-1 choice
  *     (they wire ONE backend); the app registers whichever is configured.
  *
- * TRAINEE BUILDS (stubbed here — they THROW "not implemented" so the app
- * still compiles + boots, and the model knows the tools exist):
- *   - `find_flag`         → Build 2 (Assist): read the live shortfall
- *   - `rank_dispositions`    → Build 2 (Assist): read the ML recommendation
+ * IMPLEMENTED (Build 2 + Build 3 — the Assist + Act layers):
+ *   - `find_flag`         → Build 2 (Assist): read the live flag
+ *   - `rank_dispositions` → Build 2 (Assist): read the ML recommendation
  *   - `execute_case_action`→ Build 3 (Act):   the human-in-the-loop write
+ *   - `search_cases`      → Lakebase Search: in-Lakebase pgvector semantic
+ *                           retrieval over dispo_recs.reasoning (not a
+ *                           separate store)
  *
  * The three-phase chain (Discover → Draft+confirm → Execute) is described in
- * the instructions below so the model attempts it — but Phases 2/3 depend on
- * the stubbed tools, which is the point: the trainee implements them and the
- * chain lights up. Until then, the model can still investigate via ask_data.
+ * the instructions below and now runs end to end: find_flag + rank_dispositions
+ * read from the synced mirrors, and execute_case_action writes the approved
+ * disposition to app.case_actions so the queue reflects it on the next read.
  *
  * KEEP `configureAgentsSdk()` as-is — it handles the Databricks Responses API
  * wiring, the `Connection: close` stale-socket workaround, and the 64-char
@@ -45,6 +47,15 @@ import * as mlflow from 'mlflow-tracing';
 import { z } from 'zod';
 import { authHeaders } from '../lib/auth.js';
 import type { AppDb } from '../db/index.js';
+import { sql } from 'drizzle-orm';
+import { caseActions, type AuditEntry } from '../db/schema.js';
+import {
+  getOpenFlag,
+  worstFlag,
+  getPayment,
+  getRecommendation,
+} from '../db/queries/index.js';
+import { embedText } from './tools/embed.js';
 // The data-backend helpers. Both are config-driven and share the same
 // DataCallResult shape + ToolProgressEvent stream, so the `ask_data` tool
 // below can delegate to EITHER without the UI caring which powers it. This
@@ -124,13 +135,11 @@ function makeTools(ctx: AgentContext): Tool[] {
       ),
   });
 
-  // ── find_flag — TRAINEE BUILDS (Build 2 · Assist). STUB. ─────────────
-  // TODO — BUILD 2 (trainee): implement this. Read the open flag for a
-  // payment (or the worst one) from Lakebase app.open_queue + app.payment_position:
-  // the fraud/eligibility signals on it, n_signals, risk_level, and
-  // improper-payment exposure. Helper queries are READY in
-  // server/db/queries/cases.ts: `getOpenFlag`, `worstFlag`, `getPayment`.
-  // See APP_WORKSHOP.md → "Layer 2 — Assist".
+  // ── find_flag — Build 2 · Assist. IMPLEMENTED. ───────────────────────
+  // Reads the open flag for a payment (or the worst open one) from Lakebase
+  // app.open_queue via getOpenFlag/worstFlag, then enriches with the synced
+  // position (getPayment) for program/amount/projected-recovery + any live
+  // disposition. Read-only. See APP_WORKSHOP.md → "Layer 2 — Assist".
   const findShortfall = tool({
     name: 'find_flag',
     description:
@@ -141,22 +150,52 @@ function makeTools(ctx: AgentContext): Tool[] {
         .nullable()
         .describe('Payment id, e.g. PAY-0000214. Null → return the worst open flagged payment.'),
     }),
-    execute: async () => {
-      throw new Error(
-        'Not implemented — this is your Build 2 Assist task; see APP_WORKSHOP.md',
-      );
-    },
+    execute: async ({ payment_id }) =>
+      mlflow.withSpan(
+        async () => {
+          const flag = payment_id
+            ? await getOpenFlag(ctx.db, payment_id)
+            : await worstFlag(ctx.db);
+          if (!flag) {
+            throw new Error(
+              payment_id
+                ? `No open flag found for ${payment_id}.`
+                : 'No open flagged payments in the queue.',
+            );
+          }
+          // Enrich with the synced position (program / amount / projected
+          // recovery + any disposition already recorded) so the model can draft.
+          const position = await getPayment(ctx.db, flag.paymentId);
+          return {
+            payment_id: flag.paymentId,
+            program: position?.program ?? null,
+            state: position?.state ?? null,
+            payment_amount_usd: position?.paymentAmountUsd ?? null,
+            n_signals: flag.nSignals,
+            signals: flag.signalList,
+            risk_level: flag.riskLevel,
+            improper_payment_exposure_usd: flag.improperPaymentExposureUsd,
+            projected_recovery_if_investigated_usd:
+              position?.projectedRecoveryIfInvestigatedUsd ?? null,
+            live_disposition: position?.liveDisposition ?? null,
+            action_status: position?.actionStatus ?? null,
+          };
+        },
+        {
+          name: 'find_flag',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { payment_id },
+        },
+      ),
   });
 
-  // ── rank_dispositions — TRAINEE BUILDS (Build 2 · Assist). STUB. ────────
-  // TODO — BUILD 2 (trainee): implement this. Read app.dispo_recs
-  // for {payment_id} and return the model's recommended_disposition,
-  // predicted_recovery_usd, predicted_cost_usd, and the full action_ranking
-  // (all three dispositions with predicted recovery $ + net $ + cost). This is the
-  // demo's "ML in the loop" moment — the agent quotes the ranked options + the
-  // recommended disposition in the draft, and recomputes the what-if
-  // arithmetically from action_ranking. Helper query READY: `getRecommendation`
-  // in cases.ts. See APP_WORKSHOP.md → "Layer 2 — Assist".
+  // ── rank_dispositions — Build 2 · Assist. IMPLEMENTED. ──────────────────
+  // Reads app.dispo_recs for {payment_id} via getRecommendation and returns the
+  // recommended_disposition, predicted_recovery_usd, predicted_cost_usd, and the
+  // full action_ranking (all three dispositions with predicted recovery $ + net $
+  // + cost) — the "ML in the loop" moment. The agent quotes these in the draft and
+  // computes the what-if arithmetically from action_ranking. Read-only.
+  // See APP_WORKSHOP.md → "Layer 2 — Assist".
   const rankRecoveryMoves = tool({
     name: 'rank_dispositions',
     description:
@@ -164,23 +203,40 @@ function makeTools(ctx: AgentContext): Tool[] {
     parameters: z.object({
       payment_id: z.string().describe('Payment id, e.g. PAY-0000214.'),
     }),
-    execute: async () => {
-      throw new Error(
-        'Not implemented — this is your Build 2 Assist task; see APP_WORKSHOP.md',
-      );
-    },
+    execute: async ({ payment_id }) =>
+      mlflow.withSpan(
+        async () => {
+          const rec = await getRecommendation(ctx.db, payment_id);
+          if (!rec) {
+            throw new Error(
+              `No disposition recommendation found for ${payment_id}.`,
+            );
+          }
+          return {
+            payment_id: rec.paymentId,
+            recommended_disposition: rec.recommendedDisposition,
+            recommended_hold_hours: rec.recommendedHoldHours,
+            predicted_recovery_usd: rec.predictedRecoveryUsd,
+            predicted_cost_usd: rec.predictedCostUsd,
+            action_ranking: rec.actionRanking,
+          };
+        },
+        {
+          name: 'rank_dispositions',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { payment_id },
+        },
+      ),
   });
 
-  // ── execute_case_action — TRAINEE BUILDS (Build 3 · Act). STUB. ───────
-  // TODO — BUILD 3 (trainee): implement this — the human-in-the-loop WRITE.
-  // ONLY call this AFTER the examiner has explicitly approved. Write the approved
-  // disposition to Lakebase app.case_actions (action_type, hold_duration_hours,
-  // the drafted memo text, predicted_recovery_usd, status='approved',
-  // approved_by=ctx.userEmail, an appended audit entry). Inputs are a FILTER
-  // ({payment_id, action_type, hold_duration_hours?}) + the drafted memo text —
-  // NEVER a list of ids. Wrap the write in db.transaction(...). On commit the
-  // caller emits dataMutated so the Operations page cascades. See
-  // APP_WORKSHOP.md → "Layer 3 — Act".
+  // ── execute_case_action — Build 3 · Act. IMPLEMENTED (human-in-the-loop). ─
+  // Reached ONLY after the examiner explicitly approved in chat (Phase 3). Writes
+  // the approved disposition to Lakebase app.case_actions (action_type,
+  // hold_duration_hours, the drafted memo text, predicted_recovery_usd,
+  // status='approved', approved_by=ctx.userEmail, an appended audit entry) inside
+  // db.transaction(...). On the next read the queue derives the payment's live
+  // state from the payment_position ⟕ latest-case_actions join (client refetches
+  // on turn completion), closing the loop. See APP_WORKSHOP.md → "Layer 3 — Act".
   const executeRecoveryAction = tool({
     name: 'execute_case_action',
     description:
@@ -202,18 +258,175 @@ function makeTools(ctx: AgentContext): Tool[] {
         .number()
         .describe('Predicted recovery for this disposition (from rank_dispositions).'),
     }),
-    execute: async () => {
-      throw new Error(
-        'Not implemented — this is your Build 2/3 Assist/Act task; see APP_WORKSHOP.md',
-      );
-    },
+    execute: async ({
+      payment_id,
+      action_type,
+      hold_duration_hours,
+      drafted_request,
+      predicted_recovery_usd,
+    }) =>
+      mlflow.withSpan(
+        async () => {
+          // Human-in-the-loop WRITE. Reached only after the examiner approved
+          // in chat (Phase 3). Wrapped in a transaction; the payment's live
+          // state is derived on the NEXT read via the payment_position ⟕
+          // latest-case_actions join, so the queue reflects this decision.
+          const recorded = await ctx.db.transaction(async (tx) => {
+            // Validate this is a real flagged payment and derive its
+            // representative signal (case_actions.signal_type is NOT NULL;
+            // reads key on payment_id).
+            const posRes = await tx.execute(sql`
+              SELECT signals
+              FROM app.payment_position
+              WHERE payment_id = ${payment_id}
+              LIMIT 1
+            `);
+            const posRow = posRes.rows[0] as
+              | { signals: string | null }
+              | undefined;
+            if (!posRow) {
+              throw new Error(
+                `No flagged payment ${payment_id} in the queue — cannot record a disposition.`,
+              );
+            }
+            const signalType =
+              (posRow.signals ?? '').split(',')[0]?.trim() || 'unspecified';
+
+            const now = new Date();
+            const audit: AuditEntry = {
+              at: now.toISOString(),
+              by: ctx.userEmail,
+              action: 'approved',
+              notes: `Examiner-approved ${action_type}${
+                hold_duration_hours ? ` — hold ${hold_duration_hours}h` : ''
+              }.`,
+              tool: 'execute_case_action',
+            };
+
+            const [row] = await tx
+              .insert(caseActions)
+              .values({
+                paymentId: payment_id,
+                signalType,
+                actionType: action_type,
+                holdDurationHours: hold_duration_hours,
+                draftedRequest: drafted_request,
+                predictedRecoveryUsd: predicted_recovery_usd,
+                status: 'approved',
+                approvedBy: ctx.userEmail,
+                reviewedByRole: 'examiner',
+                auditTrail: [audit],
+                decidedAt: now,
+              })
+              .returning({
+                id: caseActions.id,
+                paymentId: caseActions.paymentId,
+                signalType: caseActions.signalType,
+                actionType: caseActions.actionType,
+                holdDurationHours: caseActions.holdDurationHours,
+                predictedRecoveryUsd: caseActions.predictedRecoveryUsd,
+                status: caseActions.status,
+                approvedBy: caseActions.approvedBy,
+                createdAt: caseActions.createdAt,
+                decidedAt: caseActions.decidedAt,
+              });
+            return row;
+          });
+
+          return {
+            recorded: true,
+            case_action_id: recorded.id,
+            payment_id: recorded.paymentId,
+            signal_type: recorded.signalType,
+            action_type: recorded.actionType,
+            hold_duration_hours: recorded.holdDurationHours,
+            predicted_recovery_usd: recorded.predictedRecoveryUsd,
+            status: recorded.status,
+            approved_by: recorded.approvedBy,
+            created_at: recorded.createdAt,
+            decided_at: recorded.decidedAt,
+          };
+        },
+        {
+          name: 'execute_case_action',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: {
+            payment_id,
+            action_type,
+            hold_duration_hours,
+            predicted_recovery_usd,
+          },
+        },
+      ),
   });
 
-  // find_flag / rank_dispositions / execute_case_action are
-  // registered so the MODEL knows they exist (and the trainee sees them in
-  // the tool list) — they throw until implemented. ask_data is registered
-  // only when a backend is configured.
-  const tools: Tool[] = [findShortfall, rankRecoveryMoves, executeRecoveryAction];
+  // ── search_cases — Build 1 Lakebase Search (pgvector). IMPLEMENTED. ──────
+  // Semantic retrieval over app.dispo_recs.reasoning using the IN-LAKEBASE
+  // pgvector index (`dispo_recs_reasoning_vec_idx`, HNSW cosine). Retrieval
+  // happens in the operational store — NOT a separate search service. Embeds
+  // the query via databricks-gte-large-en, then ranks by cosine similarity.
+  const searchCases = tool({
+    name: 'search_cases',
+    description:
+      'Semantic search over the flagged-payment disposition reasoning using the Lakebase pgvector index (retrieval happens in Lakebase, not a separate store). Use to find flagged payments whose reasoning is similar to a described situation, e.g. "deceased payee with an income mismatch" or "single weak signal, likely legitimate".',
+    parameters: z.object({
+      query: z
+        .string()
+        .describe('A natural-language description of the kind of case to find.'),
+      limit: z
+        .number()
+        .int()
+        .nullable()
+        .describe('Max results to return (default 5, max 25).'),
+    }),
+    execute: async ({ query, limit }) =>
+      mlflow.withSpan(
+        async () => {
+          const k = limit && limit > 0 ? Math.min(limit, 25) : 5;
+          const vec = await embedText(ctx, query);
+          // vec is model-generated numbers (not user text); bind as a pgvector
+          // literal and cast — the search runs against the Lakebase index.
+          const lit = `[${vec.join(',')}]`;
+          const res = await ctx.db.execute(sql`
+            SELECT payment_id,
+                   LEFT(reasoning, 300) AS reasoning,
+                   1 - (search_embedding <=> ${lit}::vector) AS score
+            FROM app.dispo_recs
+            WHERE search_embedding IS NOT NULL
+            ORDER BY search_embedding <=> ${lit}::vector
+            LIMIT ${k}
+          `);
+          const rows = res.rows as Array<{
+            payment_id: string;
+            reasoning: string | null;
+            score: number | string | null;
+          }>;
+          return {
+            query,
+            results: rows.map((r) => ({
+              payment_id: r.payment_id,
+              reasoning: r.reasoning,
+              score: r.score === null ? null : Number(r.score),
+            })),
+          };
+        },
+        {
+          name: 'search_cases',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { query, limit },
+        },
+      ),
+  });
+
+  // find_flag / rank_dispositions / execute_case_action / search_cases read
+  // and act on Lakebase; ask_data (registered only when a Genie/MAS backend is
+  // configured) reads the governed lakehouse. All spanned by MLflow.
+  const tools: Tool[] = [
+    findShortfall,
+    rankRecoveryMoves,
+    executeRecoveryAction,
+    searchCases,
+  ];
   if (ctx.masEndpointName || ctx.genieSpaceId) {
     tools.unshift(askData);
   }
@@ -338,44 +551,54 @@ export function buildAgent(ctx: AgentContext): Agent {
       store: false,
     },
     instructions: `
-You are the store-operations assistant for the Deputy Commissioner for Program Integrity at
-Sentinel Payment Integrity (Della Okonkwo). Your user is a non-technical executive staring
-at stores on a map all day. Be decisive, concise, and always lead with the
-number and the recommended move.
+You are the program-integrity assistant for the Deputy Commissioner for Program
+Integrity at Sentinel (Della Okonkwo). Sentinel PREVENTS improper payments
+pre-disbursement: for each flagged payment it shows the fraud/eligibility signals
+and the improper-payment exposure, and prescribes a disposition — release, hold
+for verification, or refer to investigation — for the examiner to approve BEFORE
+funds move. Your user is a busy, non-technical executive. Be decisive and concise,
+and always lead with the number and the recommended disposition.
 
-The situation: a cross-agency fraud-match feed surfaced improper payments —
-a critical payment PAY-0000214 is flagged with duplicate_identity + cross_agency_fraud_flag
-(lost-sales exposure) while other programs hold clear flags of similar signals
-(a verification clock ticking). The hero: Payment PAY-0000214 (Child Care)
-is flagged for hold-for-verification (duplicate identity + cross-agency match).
+The situation: a cross-agency fraud-match feed plus an eligibility refresh
+surfaced a spike of high-risk pre-disbursement payments (duplicate identities,
+deceased payees, income mismatches, cross-agency fraud flags) — a verification
+clock is ticking before disbursement. The hero: payment PAY-0000202 (TANF, MN),
+flagged with cross_agency_fraud_flag + income_mismatch, high risk, ~$2,582
+improper-payment exposure — a hold-for-verification candidate.
 
 ════════════════════════════════════════════════════════════
 TOOLS AT YOUR DISPOSAL
 ════════════════════════════════════════════════════════════
 
 ask_data(question) — investigate the governed lakehouse. Use for any WHY /
-  WHAT HAPPENED / investigative question (why a payment is flagged, what is the risk
-  sell-through moved, where is the hold). Prefer ONE narrow question over
-  many small ones. Narrow questions finish in 20–40s.
+  WHAT HAPPENED / investigative question (why a payment is flagged, what a signal
+  means, how a program's exposure compares). Prefer ONE narrow question over many
+  small ones. Narrow questions finish in 20–40s.
 
-find_flag(payment_id, signal_type) — read the LIVE shortfall for a payment×signal
-  (or the worst open shortfall if both are null) from Lakebase: on-hand, recent
-  velocity, weeks of supply, lost-sales exposure, and the NEAREST SURPLUS store
-  + its on-hand + distance. Read-only.
+find_flag(payment_id) — read the LIVE flag for a payment (or the worst open
+  flagged payment if payment_id is null) from Lakebase: the fraud/eligibility
+  signals, signal count, risk level, improper-payment exposure, program/amount,
+  projected recovery if investigated, and any disposition already recorded.
+  Read-only.
 
-rank_dispositions(payment_id, signal_type) — read the ML recovery model's ranked
-  moves from Lakebase: the recommended move, its predicted recaptured $ + net
-  value, and the FULL ranking of all three options (transfer / expedite /
-  substitute) with each option's units, cost, predicted recaptured $ and net $.
-  This is the "ML in the loop" moment — quote the ranked options + the
-  recommended move in your draft, and do any what-if arithmetically from the
-  ranking (don't re-call the model). Read-only.
+rank_dispositions(payment_id) — read the model's ranked dispositions from
+  Lakebase: the recommended disposition, its predicted recovery $ + cost, the
+  recommended hold hours, and the FULL ranking of all three options
+  (release / hold_for_verification / refer_to_investigation) with each option's
+  hold hours, cost, predicted recovery $ and net $. This is the "ML in the loop"
+  moment — quote the ranked options + the recommendation in your draft, and do
+  any what-if arithmetically from the ranking (don't re-call the model). Read-only.
 
-execute_case_action(payment_id, signal_type, action_type, units, source_payment_id,
-  drafted_request, predicted_recaptured_usd) — THE WRITE. Records the approved
-  move to Lakebase (transfer/expedite/substitute) + a markdown-hold on the
-  source surplus. Use ONLY after the user has explicitly approved. Inputs are a
-  FILTER + the drafted request text — never a list of ids.
+execute_case_action(payment_id, action_type, hold_duration_hours, drafted_request,
+  predicted_recovery_usd) — THE WRITE. Records the approved disposition
+  (release / hold_for_verification / refer_to_investigation) to Lakebase
+  app.case_actions with an audit entry, attributed to you. Use ONLY after the
+  examiner has explicitly approved.
+
+search_cases(query, limit) — semantic search over the flagged-payment disposition
+  reasoning using the in-Lakebase pgvector index (retrieval happens IN Lakebase,
+  not a separate store). Use to pull up cases similar to a described situation
+  (e.g. "deceased payee with income mismatch"). Read-only.
 
 THERE ARE NO OTHER TOOLS.
 
@@ -384,42 +607,42 @@ OPERATING MODES
 ════════════════════════════════════════════════════════════
 
 MODE A — INVESTIGATION
-If the user asks "why", "what", "where", "who", or anything that requires
-reading data → call ask_data EXACTLY ONCE with a SHORT, targeted question,
-then synthesize for the user. Do NOT take an action unless explicitly asked.
+If the user asks "why", "what", "where", "who", or anything that requires reading
+data → call find_flag / rank_dispositions for a specific payment, or ask_data for
+open-ended questions, then synthesize for the user. Do NOT take an action unless
+explicitly asked.
 
-MODE B — RECOVERY ACTION CHAIN (HUMAN-IN-THE-LOOP)
-If the user asks you to RECOVER / FIX / HANDLE / TRANSFER something, run a
-strict three-phase chain with a confirmation step in the middle. NEVER run
-Phase 3 (execute_case_action) until the user has explicitly approved.
+MODE B — DISPOSITION CHAIN (HUMAN-IN-THE-LOOP)
+If the user asks you to HANDLE / DISPOSITION / HOLD / RELEASE / REFER a payment,
+run a strict three-phase chain with a confirmation step in the middle. NEVER run
+Phase 3 (execute_case_action) until the examiner has explicitly approved.
 
 --- Phase 1 · Discover (read-only) ---
-  1. If you don't already know the target payment×signal, call ask_data to find the
-     worst shortfall, or ask the user once. For the hero flow it's PAY-0000214 /
-     duplicate_identity.
-  2. Call find_flag(payment_id, signal_type) to read the live position + the
-     nearest surplus store.
-  3. Call rank_dispositions(payment_id, signal_type) — THE ML MOMENT. Remember
-     the recommended move + the full ranking; you quote them in Phase 2.
+  1. If you don't already know the target payment, call find_flag(null) for the
+     worst open flagged payment, or ask the user once. (Hero flow: PAY-0000202.)
+  2. Call find_flag(payment_id) to read the live flag (signals, risk, exposure).
+  3. Call rank_dispositions(payment_id) — THE ML MOMENT. Remember the recommended
+     disposition + the full ranking; you quote them in Phase 2.
 
 --- Phase 2 · Draft + confirm (STOP) ---
-  4. Present the ranked options (transfer / expedite / substitute), each with
-     units, cost, margin impact, and predicted recaptured $. Recommend the top
-     one and explain WHY (e.g. "Hold 48 hours on PAY-0000214 — predicted
-     +$14K recaptured, lowest cost, protects margin both ends"). Offer a what-if
-     ("what if 40 units instead of 60?") computed arithmetically from the
-     ranking. Draft the transfer/expedite/substitute request memo.
-  5. End with: "Reply **approve** to record this transfer — or tell me what to
+  4. Present the ranked dispositions (release / hold_for_verification /
+     refer_to_investigation), each with hold hours, cost, predicted recovery $ and
+     net $. Recommend the top one and explain WHY (e.g. "Hold 72 hours on
+     PAY-0000202 — predicted +$1,678 recovery for ~$48 verification cost; two
+     strong signals don't justify releasing funds before identity is confirmed").
+     Offer a what-if ("what if we release instead of hold?") computed
+     arithmetically from the ranking. Draft the verification-request / referral memo.
+  5. End with: "Reply **approve** to record this disposition — or tell me what to
      change." STOP HERE. Do not proceed until the user's next message.
 
 --- Phase 3 · Execute (on approval) ---
   Triggered only when the user's NEXT message is an approval ("approve", "yes",
-  "go", "do it", "ship it", "looks good"). A revision request means → redraft
-  and go back to Phase 2 (STOP again).
-  On approval: call execute_case_action ONCE with the approved move's
-  filter + the drafted request + the predicted recaptured $. Then summarize
-  what was recorded (see SUMMARY FORMAT). Numbers come from the tool result,
-  not memory.
+  "go", "do it", "ship it", "looks good"). A revision request (e.g. "make it a
+  48-hour hold") means → redraft and go back to Phase 2 (STOP again).
+  On approval: call execute_case_action ONCE with the approved payment_id +
+  action_type + hold_duration_hours + the drafted memo + predicted_recovery_usd.
+  Then summarize what was recorded (see SUMMARY FORMAT). Numbers come from the
+  tool result, not memory.
 
 If a tool errors, surface the error plainly — never pretend a tool ran.
 
@@ -429,11 +652,11 @@ SUMMARY FORMAT (final assistant message)
 
 ALWAYS end an action chain with a markdown summary the executive reads in 10s:
 
-**Done — PAY-0000214 disposition recorded.**
+**Done — PAY-0000202 disposition recorded.**
 
-- **Hold 48 hours · PAY-0000214 · duplicate_identity flag
-- **Predicted recovery $2.1K** · audit logged for review
-- Recorded by you, awaiting fulfillment
+- **Hold 72 hours · PAY-0000202 · TANF · cross_agency_fraud_flag + income_mismatch**
+- **Predicted recovery $1.7K** for ~$48 verification cost · audit logged
+- Recorded by you, awaiting verification
 
 Rules: bold the headline stat on line 1; numbers come from tool results, not
 memory; close with ONE concrete next step only if warranted.
@@ -442,7 +665,7 @@ memory; close with ONE concrete next step only if warranted.
 TONE
 ════════════════════════════════════════════════════════════
 
-The user is busy. Lead with the answer + the recommended move. No preamble.
+The user is busy. Lead with the answer + the recommended disposition. No preamble.
 When investigating, synthesize — don't dump raw data.
 `.trim(),
     tools: makeTools(ctx),
