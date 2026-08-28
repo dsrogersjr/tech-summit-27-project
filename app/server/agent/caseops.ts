@@ -16,16 +16,15 @@
  *     space if `genieSpaceId` is set. This is the trainee's Build-1 choice
  *     (they wire ONE backend); the app registers whichever is configured.
  *
- * TRAINEE BUILDS (stubbed here — they THROW "not implemented" so the app
- * still compiles + boots, and the model knows the tools exist):
- *   - `find_flag`         → Build 2 (Assist): read the live shortfall
- *   - `rank_dispositions`    → Build 2 (Assist): read the ML recommendation
+ * IMPLEMENTED (Build 2 + Build 3 — the Assist + Act layers):
+ *   - `find_flag`         → Build 2 (Assist): read the live flag
+ *   - `rank_dispositions` → Build 2 (Assist): read the ML recommendation
  *   - `execute_case_action`→ Build 3 (Act):   the human-in-the-loop write
  *
  * The three-phase chain (Discover → Draft+confirm → Execute) is described in
- * the instructions below so the model attempts it — but Phases 2/3 depend on
- * the stubbed tools, which is the point: the trainee implements them and the
- * chain lights up. Until then, the model can still investigate via ask_data.
+ * the instructions below and now runs end to end: find_flag + rank_dispositions
+ * read from the synced mirrors, and execute_case_action writes the approved
+ * disposition to app.case_actions so the queue reflects it on the next read.
  *
  * KEEP `configureAgentsSdk()` as-is — it handles the Databricks Responses API
  * wiring, the `Connection: close` stale-socket workaround, and the 64-char
@@ -45,6 +44,14 @@ import * as mlflow from 'mlflow-tracing';
 import { z } from 'zod';
 import { authHeaders } from '../lib/auth.js';
 import type { AppDb } from '../db/index.js';
+import { sql } from 'drizzle-orm';
+import { caseActions, type AuditEntry } from '../db/schema.js';
+import {
+  getOpenFlag,
+  worstFlag,
+  getPayment,
+  getRecommendation,
+} from '../db/queries/index.js';
 // The data-backend helpers. Both are config-driven and share the same
 // DataCallResult shape + ToolProgressEvent stream, so the `ask_data` tool
 // below can delegate to EITHER without the UI caring which powers it. This
@@ -124,13 +131,11 @@ function makeTools(ctx: AgentContext): Tool[] {
       ),
   });
 
-  // ── find_flag — TRAINEE BUILDS (Build 2 · Assist). STUB. ─────────────
-  // TODO — BUILD 2 (trainee): implement this. Read the open flag for a
-  // payment (or the worst one) from Lakebase app.open_queue + app.payment_position:
-  // the fraud/eligibility signals on it, n_signals, risk_level, and
-  // improper-payment exposure. Helper queries are READY in
-  // server/db/queries/cases.ts: `getOpenFlag`, `worstFlag`, `getPayment`.
-  // See APP_WORKSHOP.md → "Layer 2 — Assist".
+  // ── find_flag — Build 2 · Assist. IMPLEMENTED. ───────────────────────
+  // Reads the open flag for a payment (or the worst open one) from Lakebase
+  // app.open_queue via getOpenFlag/worstFlag, then enriches with the synced
+  // position (getPayment) for program/amount/projected-recovery + any live
+  // disposition. Read-only. See APP_WORKSHOP.md → "Layer 2 — Assist".
   const findShortfall = tool({
     name: 'find_flag',
     description:
@@ -141,22 +146,52 @@ function makeTools(ctx: AgentContext): Tool[] {
         .nullable()
         .describe('Payment id, e.g. PAY-0000214. Null → return the worst open flagged payment.'),
     }),
-    execute: async () => {
-      throw new Error(
-        'Not implemented — this is your Build 2 Assist task; see APP_WORKSHOP.md',
-      );
-    },
+    execute: async ({ payment_id }) =>
+      mlflow.withSpan(
+        async () => {
+          const flag = payment_id
+            ? await getOpenFlag(ctx.db, payment_id)
+            : await worstFlag(ctx.db);
+          if (!flag) {
+            throw new Error(
+              payment_id
+                ? `No open flag found for ${payment_id}.`
+                : 'No open flagged payments in the queue.',
+            );
+          }
+          // Enrich with the synced position (program / amount / projected
+          // recovery + any disposition already recorded) so the model can draft.
+          const position = await getPayment(ctx.db, flag.paymentId);
+          return {
+            payment_id: flag.paymentId,
+            program: position?.program ?? null,
+            state: position?.state ?? null,
+            payment_amount_usd: position?.paymentAmountUsd ?? null,
+            n_signals: flag.nSignals,
+            signals: flag.signalList,
+            risk_level: flag.riskLevel,
+            improper_payment_exposure_usd: flag.improperPaymentExposureUsd,
+            projected_recovery_if_investigated_usd:
+              position?.projectedRecoveryIfInvestigatedUsd ?? null,
+            live_disposition: position?.liveDisposition ?? null,
+            action_status: position?.actionStatus ?? null,
+          };
+        },
+        {
+          name: 'find_flag',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { payment_id },
+        },
+      ),
   });
 
-  // ── rank_dispositions — TRAINEE BUILDS (Build 2 · Assist). STUB. ────────
-  // TODO — BUILD 2 (trainee): implement this. Read app.dispo_recs
-  // for {payment_id} and return the model's recommended_disposition,
-  // predicted_recovery_usd, predicted_cost_usd, and the full action_ranking
-  // (all three dispositions with predicted recovery $ + net $ + cost). This is the
-  // demo's "ML in the loop" moment — the agent quotes the ranked options + the
-  // recommended disposition in the draft, and recomputes the what-if
-  // arithmetically from action_ranking. Helper query READY: `getRecommendation`
-  // in cases.ts. See APP_WORKSHOP.md → "Layer 2 — Assist".
+  // ── rank_dispositions — Build 2 · Assist. IMPLEMENTED. ──────────────────
+  // Reads app.dispo_recs for {payment_id} via getRecommendation and returns the
+  // recommended_disposition, predicted_recovery_usd, predicted_cost_usd, and the
+  // full action_ranking (all three dispositions with predicted recovery $ + net $
+  // + cost) — the "ML in the loop" moment. The agent quotes these in the draft and
+  // computes the what-if arithmetically from action_ranking. Read-only.
+  // See APP_WORKSHOP.md → "Layer 2 — Assist".
   const rankRecoveryMoves = tool({
     name: 'rank_dispositions',
     description:
@@ -164,23 +199,40 @@ function makeTools(ctx: AgentContext): Tool[] {
     parameters: z.object({
       payment_id: z.string().describe('Payment id, e.g. PAY-0000214.'),
     }),
-    execute: async () => {
-      throw new Error(
-        'Not implemented — this is your Build 2 Assist task; see APP_WORKSHOP.md',
-      );
-    },
+    execute: async ({ payment_id }) =>
+      mlflow.withSpan(
+        async () => {
+          const rec = await getRecommendation(ctx.db, payment_id);
+          if (!rec) {
+            throw new Error(
+              `No disposition recommendation found for ${payment_id}.`,
+            );
+          }
+          return {
+            payment_id: rec.paymentId,
+            recommended_disposition: rec.recommendedDisposition,
+            recommended_hold_hours: rec.recommendedHoldHours,
+            predicted_recovery_usd: rec.predictedRecoveryUsd,
+            predicted_cost_usd: rec.predictedCostUsd,
+            action_ranking: rec.actionRanking,
+          };
+        },
+        {
+          name: 'rank_dispositions',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { payment_id },
+        },
+      ),
   });
 
-  // ── execute_case_action — TRAINEE BUILDS (Build 3 · Act). STUB. ───────
-  // TODO — BUILD 3 (trainee): implement this — the human-in-the-loop WRITE.
-  // ONLY call this AFTER the examiner has explicitly approved. Write the approved
-  // disposition to Lakebase app.case_actions (action_type, hold_duration_hours,
-  // the drafted memo text, predicted_recovery_usd, status='approved',
-  // approved_by=ctx.userEmail, an appended audit entry). Inputs are a FILTER
-  // ({payment_id, action_type, hold_duration_hours?}) + the drafted memo text —
-  // NEVER a list of ids. Wrap the write in db.transaction(...). On commit the
-  // caller emits dataMutated so the Operations page cascades. See
-  // APP_WORKSHOP.md → "Layer 3 — Act".
+  // ── execute_case_action — Build 3 · Act. IMPLEMENTED (human-in-the-loop). ─
+  // Reached ONLY after the examiner explicitly approved in chat (Phase 3). Writes
+  // the approved disposition to Lakebase app.case_actions (action_type,
+  // hold_duration_hours, the drafted memo text, predicted_recovery_usd,
+  // status='approved', approved_by=ctx.userEmail, an appended audit entry) inside
+  // db.transaction(...). On the next read the queue derives the payment's live
+  // state from the payment_position ⟕ latest-case_actions join (client refetches
+  // on turn completion), closing the loop. See APP_WORKSHOP.md → "Layer 3 — Act".
   const executeRecoveryAction = tool({
     name: 'execute_case_action',
     description:
@@ -202,11 +254,106 @@ function makeTools(ctx: AgentContext): Tool[] {
         .number()
         .describe('Predicted recovery for this disposition (from rank_dispositions).'),
     }),
-    execute: async () => {
-      throw new Error(
-        'Not implemented — this is your Build 2/3 Assist/Act task; see APP_WORKSHOP.md',
-      );
-    },
+    execute: async ({
+      payment_id,
+      action_type,
+      hold_duration_hours,
+      drafted_request,
+      predicted_recovery_usd,
+    }) =>
+      mlflow.withSpan(
+        async () => {
+          // Human-in-the-loop WRITE. Reached only after the examiner approved
+          // in chat (Phase 3). Wrapped in a transaction; the payment's live
+          // state is derived on the NEXT read via the payment_position ⟕
+          // latest-case_actions join, so the queue reflects this decision.
+          const recorded = await ctx.db.transaction(async (tx) => {
+            // Validate this is a real flagged payment and derive its
+            // representative signal (case_actions.signal_type is NOT NULL;
+            // reads key on payment_id).
+            const posRes = await tx.execute(sql`
+              SELECT signals
+              FROM app.payment_position
+              WHERE payment_id = ${payment_id}
+              LIMIT 1
+            `);
+            const posRow = posRes.rows[0] as
+              | { signals: string | null }
+              | undefined;
+            if (!posRow) {
+              throw new Error(
+                `No flagged payment ${payment_id} in the queue — cannot record a disposition.`,
+              );
+            }
+            const signalType =
+              (posRow.signals ?? '').split(',')[0]?.trim() || 'unspecified';
+
+            const now = new Date();
+            const audit: AuditEntry = {
+              at: now.toISOString(),
+              by: ctx.userEmail,
+              action: 'approved',
+              notes: `Examiner-approved ${action_type}${
+                hold_duration_hours ? ` — hold ${hold_duration_hours}h` : ''
+              }.`,
+              tool: 'execute_case_action',
+            };
+
+            const [row] = await tx
+              .insert(caseActions)
+              .values({
+                paymentId: payment_id,
+                signalType,
+                actionType: action_type,
+                holdDurationHours: hold_duration_hours,
+                draftedRequest: drafted_request,
+                predictedRecoveryUsd: predicted_recovery_usd,
+                status: 'approved',
+                approvedBy: ctx.userEmail,
+                reviewedByRole: 'examiner',
+                auditTrail: [audit],
+                decidedAt: now,
+              })
+              .returning({
+                id: caseActions.id,
+                paymentId: caseActions.paymentId,
+                signalType: caseActions.signalType,
+                actionType: caseActions.actionType,
+                holdDurationHours: caseActions.holdDurationHours,
+                predictedRecoveryUsd: caseActions.predictedRecoveryUsd,
+                status: caseActions.status,
+                approvedBy: caseActions.approvedBy,
+                createdAt: caseActions.createdAt,
+                decidedAt: caseActions.decidedAt,
+              });
+            return row;
+          });
+
+          return {
+            recorded: true,
+            case_action_id: recorded.id,
+            payment_id: recorded.paymentId,
+            signal_type: recorded.signalType,
+            action_type: recorded.actionType,
+            hold_duration_hours: recorded.holdDurationHours,
+            predicted_recovery_usd: recorded.predictedRecoveryUsd,
+            status: recorded.status,
+            approved_by: recorded.approvedBy,
+            created_at: recorded.createdAt,
+            decided_at: recorded.decidedAt,
+          };
+        },
+        {
+          name: 'execute_case_action',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: {
+            payment_id,
+            action_type,
+            hold_duration_hours,
+            predicted_recovery_usd,
+          },
+        },
+      ),
   });
 
   // find_flag / rank_dispositions / execute_case_action are
