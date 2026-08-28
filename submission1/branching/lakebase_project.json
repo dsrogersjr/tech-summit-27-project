@@ -1,0 +1,24 @@
+{
+  "create_time": "2026-08-27T19:08:57Z",
+  "name": "projects/sentenel-tech-summit-27",
+  "project_id": "sentenel-tech-summit-27",
+  "status": {
+    "branch_logical_size_limit_bytes": 35184372088832,
+    "compute_last_active_time": "2026-08-28T13:13:53Z",
+    "default_branch": "projects/sentenel-tech-summit-27/branches/production",
+    "default_endpoint_settings": {
+      "autoscaling_limit_max_cu": 4,
+      "autoscaling_limit_min_cu": 2,
+      "suspend_timeout_duration": "86400s"
+    },
+    "display_name": "sentenel_tech_summit_27",
+    "enable_pg_native_login": false,
+    "history_retention_duration": "604800s",
+    "owner": "doug.rogers@databricks.com",
+    "pg_version": 17,
+    "project_id": "sentenel-tech-summit-27",
+    "synthetic_storage_size_bytes": 0
+  },
+  "uid": "c63b3413-7afe-4778-b247-a36b95888089",
+  "update_time": "2026-08-28T13:14:01Z"
+}

@@ -1,0 +1,396 @@
+From 7dc9b780f28412b0501b79ea4d4b80ba29eb56e9 Mon Sep 17 00:00:00 2001
+From: "doug.rogers@databricks.com" <doug.rogers@databricks.com>
+Date: Thu, 27 Aug 2026 21:54:14 +0000
+Subject: [PATCH 1/2] rename long table name disposition_recommendations
+
+Rename to shorter name app.dispo_recs
+---
+ app/APP_WORKSHOP.md                 |  4 ++--
+ app/client/src/shared/types.ts      |  2 +-
+ app/scripts/reset_app_schema.ts     |  2 +-
+ app/server/agent/caseops.ts         |  4 ++--
+ app/server/db/queries/cases.ts      | 10 +++++-----
+ app/server/db/schema.ts             |  6 +++---
+ app/server/db/sync.ts               |  8 ++++----
+ specifications/app/00_OVERVIEW.md   |  4 ++--
+ specifications/app/03_DATA_MODEL.md | 16 ++++++++--------
+ 9 files changed, 28 insertions(+), 28 deletions(-)
+
+diff --git a/app/APP_WORKSHOP.md b/app/APP_WORKSHOP.md
+index c633ee6..0cffc61 100644
+--- a/app/APP_WORKSHOP.md
++++ b/app/APP_WORKSHOP.md
+@@ -25,7 +25,7 @@ The app mirrors these Gold tables into Lakebase Postgres (`app.*`) at boot (see
+ |---|---|---|---|
+ | `payment_position` | `gold_queue_scored` | yes (synced) | `id`(=`payment_id:signal_type`), `payment_id`, `payment_amount`, `signal_type`, `signal_name`, `category`, `risk_level`, `improper_payment_exposure_usd`, `flag_risk_score`, `flag_frequency`, `recommended_disposition`, `hold_duration_hours`, `flag_status` (`flagged`/`verified`/`cleared`/`escalated`) |
+ | `open_queue` | `gold_open_queue` | yes (synced) | `payment_id`, `signal_type`, `improper_payment_exposure_usd`, `risk_level`, `signal_list`, `flag_frequency`, `hold_duration_hours` |
+-| `disposition_recommendations` | `gold_disposition_recommendations` | yes (synced) | `payment_id`, `signal_type`, `recommended_disposition`, `recommended_hold_hours`, `predicted_recovery_usd`, `predicted_cost_usd`, `action_ranking` (JSONB: all three options) |
++| `dispo_recs` | `gold_disposition_recommendations` | yes (synced) | `payment_id`, `signal_type`, `recommended_disposition`, `recommended_hold_hours`, `predicted_recovery_usd`, `predicted_cost_usd`, `action_ranking` (JSONB: all three options) |
+ | **`case_actions`** | — (the app's own) | **NO — writable** | `id`(uuid), `payment_id`, `signal_type`, `action_type`, `hold_duration_hours`, `drafted_request`, `predicted_recovery_usd`, `status`, `approved_by`, `reviewed_by_role`, `audit_trail`(jsonb), `created_at`, `decided_at` |
+ 
+ > **`gold_disposition_recommendations` is NOT built yet.** It is produced by the ML step of Build 2 (`specifications/03-ml-disposition.md`). The app tolerates it being absent — `server/db/sync.ts` catches `TABLE_OR_VIEW_NOT_FOUND` and leaves that mirror empty, so the app boots and the Visualize layer works. **Once you build + score the model into `gold_disposition_recommendations`, restart the app (or hit the Reset-demo button) and the mirror fills.** Then `rank_dispositions` (below) returns real data.
+@@ -89,7 +89,7 @@ Read the ML model's ranked dispositions — **the demo's "ML in the loop" moment
+ 
+ - **File:** `server/agent/caseops.ts`, the tool named `rank_dispositions`.
+ - **Signature (already declared):** `rank_dispositions({ payment_id: string, signal_type: string })`.
+-- **Lakebase helper to use:** `getDisposition(ctx.db, paymentId, signalType)` → `DispositionRecommendation | null` — reads `app.disposition_recommendations` (mirrored from `gold_disposition_recommendations`).
++- **Lakebase helper to use:** `getDisposition(ctx.db, paymentId, signalType)` → `DispositionRecommendation | null` — reads `app.dispo_recs` (mirrored from `gold_disposition_recommendations`).
+ - **Expected tool output shape:**
+   ```
+   {
+diff --git a/app/client/src/shared/types.ts b/app/client/src/shared/types.ts
+index af17488..509b893 100644
+--- a/app/client/src/shared/types.ts
++++ b/app/client/src/shared/types.ts
+@@ -63,7 +63,7 @@ export type PaymentRow = {
+ };
+ 
+ /** One option in the model's ranked disposition list
+- *  (JSONB on `disposition_recommendations.action_ranking`). Each option carries
++ *  (JSONB on `dispo_recs.action_ranking`). Each option carries
+  *  projected recovery $ + cost + net value, so the drawer + agent can render the
+  *  ranked list and do the arithmetic what-if (recover vs. citizen-delay cost). */
+ export type DispositionOption = {
+diff --git a/app/scripts/reset_app_schema.ts b/app/scripts/reset_app_schema.ts
+index 037e6e8..1c54cc6 100644
+--- a/app/scripts/reset_app_schema.ts
++++ b/app/scripts/reset_app_schema.ts
+@@ -1,6 +1,6 @@
+ // One-off maintenance: drop the Lakebase `app` schema so the next boot's
+ // migration recreates it cleanly. Needed after the mirror schema changed
+-// (payment_position/open_queue/disposition_recommendations columns) and the
++// (payment_position/open_queue/dispo_recs columns) and the
+ // old tables would otherwise collide with the fresh CREATE TABLE migration.
+ //
+ // Run once:  npx tsx --env-file-if-exists=./.env scripts/reset_app_schema.ts
+diff --git a/app/server/agent/caseops.ts b/app/server/agent/caseops.ts
+index 12098a6..065701b 100644
+--- a/app/server/agent/caseops.ts
++++ b/app/server/agent/caseops.ts
+@@ -149,7 +149,7 @@ function makeTools(ctx: AgentContext): Tool[] {
+   });
+ 
+   // ── rank_dispositions — TRAINEE BUILDS (Build 2 · Assist). STUB. ────────
+-  // TODO — BUILD 2 (trainee): implement this. Read app.disposition_recommendations
++  // TODO — BUILD 2 (trainee): implement this. Read app.dispo_recs
+   // for {payment_id} and return the model's recommended_disposition,
+   // predicted_recovery_usd, predicted_cost_usd, and the full action_ranking
+   // (all three dispositions with predicted recovery $ + net $ + cost). This is the
+@@ -160,7 +160,7 @@ function makeTools(ctx: AgentContext): Tool[] {
+   const rankRecoveryMoves = tool({
+     name: 'rank_dispositions',
+     description:
+-      "Read the model's ranked dispositions for a payment from Lakebase app.disposition_recommendations: the recommended disposition, its predicted recovery $ + net value, and the full ranking of all three options (release / hold_for_verification / refer_to_investigation) with each option's hold hours, cost, predicted recovery $ and net $. Read-only. Quote these in the draft; do the what-if (recovery vs. citizen-delay cost) arithmetically from the ranking.",
++      "Read the model's ranked dispositions for a payment from Lakebase app.dispo_recs: the recommended disposition, its predicted recovery $ + net value, and the full ranking of all three options (release / hold_for_verification / refer_to_investigation) with each option's hold hours, cost, predicted recovery $ and net $. Read-only. Quote these in the draft; do the what-if (recovery vs. citizen-delay cost) arithmetically from the ranking.",
+     parameters: z.object({
+       payment_id: z.string().describe('Payment id, e.g. PAY-0000214.'),
+     }),
+diff --git a/app/server/db/queries/cases.ts b/app/server/db/queries/cases.ts
+index 5ddc72a..255d0aa 100644
+--- a/app/server/db/queries/cases.ts
++++ b/app/server/db/queries/cases.ts
+@@ -31,7 +31,7 @@ const asActionStatus = (v: string | null): ActionStatus | null =>
+ // PaymentRow — the Operations queue's primary entity. Reads the synced
+ // read-only queue mirror (payment_position / gold_queue_scored), LEFT JOIN-ed
+ // to its LATEST case_actions row (so `live_disposition` / `action_status`
+-// reflect the writable table) and to disposition_recommendations (the model's
++// reflect the writable table) and to dispo_recs (the model's
+ // recommended disposition per flagged payment).
+ // ============================================================================
+ 
+@@ -90,7 +90,7 @@ function toPaymentRow(r: PaymentSqlRow): PaymentRow {
+ 
+ // SELECT list shared by list + single-payment reads. Reads payment_position
+ // (the synced queue mirror), LEFT JOIN-ing:
+-//   - disposition_recommendations → the model's recommended disposition,
++//   - dispo_recs → the model's recommended disposition,
+ //   - the LATEST case_actions row for that payment (DISTINCT via LATERAL) →
+ //     the live disposition badge + "case in progress".
+ const PAYMENT_SELECT = sql`
+@@ -103,7 +103,7 @@ const PAYMENT_SELECT = sql`
+     la.action_type AS live_disposition,
+     la.status AS action_status
+   FROM app.payment_position p
+-  LEFT JOIN app.disposition_recommendations dr
++  LEFT JOIN app.dispo_recs dr
+     ON dr.payment_id = p.payment_id
+   LEFT JOIN LATERAL (
+     SELECT a.action_type, a.status
+@@ -267,7 +267,7 @@ export async function getRecommendation(
+   const res = await db.execute(sql`
+     SELECT payment_id, recommended_disposition, recommended_hold_hours,
+            predicted_recovery_usd, predicted_cost_usd, action_ranking
+-    FROM app.disposition_recommendations
++    FROM app.dispo_recs
+     WHERE payment_id = ${paymentId}
+     LIMIT 1
+   `);
+@@ -393,7 +393,7 @@ export async function queueSummary(db: AppDb): Promise<QueueSummary> {
+       )::int AS refer_recommended_count
+     FROM app.payment_position p
+     LEFT JOIN acted a ON a.payment_id = p.payment_id
+-    LEFT JOIN app.disposition_recommendations dr ON dr.payment_id = p.payment_id
++    LEFT JOIN app.dispo_recs dr ON dr.payment_id = p.payment_id
+   `);
+   const r = (res.rows[0] ?? {}) as {
+     improper_payment_exposure_usd: number | string;
+diff --git a/app/server/db/schema.ts b/app/server/db/schema.ts
+index 912d7d8..12034bd 100644
+--- a/app/server/db/schema.ts
++++ b/app/server/db/schema.ts
+@@ -21,7 +21,7 @@ import {
+  *                      jsonb/text columns on `messages` make conversations
+  *                      reload-safe with full reasoning trails preserved.
+  *   2. Synced mirror   (payment_position, open_queue,
+- *                      disposition_recommendations) — READ-ONLY copies of the
++ *                      dispo_recs) — READ-ONLY copies of the
+  *                      Gold Delta tables that `db/sync.ts` pulls at boot.
+  *                      In production these are Lakebase Synced Tables (the
+  *                      manual sync is the demo stand-in). The app SELECTs
+@@ -185,7 +185,7 @@ export const openQueue = appSchema.table(
+ // so sync.ts tolerates it not existing yet — the mirror is simply empty
+ // until they produce it.
+ export const dispositionRecommendations = appSchema.table(
+-  'disposition_recommendations',
++  'dispo_recs',
+   {
+     id: text('id').primaryKey(), // = payment_id (one row per flagged payment)
+     paymentId: text('payment_id').notNull(),
+@@ -259,7 +259,7 @@ export const caseActions = appSchema.table(
+ // ============================================================================
+ 
+ /** One option in the ML model's ranked disposition list (on
+- *  `disposition_recommendations.action_ranking`). */
++ *  `dispo_recs.action_ranking`). */
+ export type ActionOption = {
+   disposition: 'release' | 'hold_for_verification' | 'refer_to_investigation';
+   holdHours: number;
+diff --git a/app/server/db/sync.ts b/app/server/db/sync.ts
+index 08dacd0..8d69fca 100644
+--- a/app/server/db/sync.ts
++++ b/app/server/db/sync.ts
+@@ -18,11 +18,11 @@ import {
+  * Pulls the three READ-ONLY Gold mirrors:
+  *   - payment_position         (the flagged payments + flagged count)
+  *   - open_queue               (open flag + risk metrics)
+- *   - disposition_recommendations (the ML model's ranked dispositions)
++ *   - dispo_recs (the ML model's ranked dispositions)
+  *
+  * `case_actions` is the app's own WRITABLE table — never synced, starts empty.
+  *
+- * The disposition_recommendations table is BUILT BY THE TRAINEE (the ML step of
++ * The dispo_recs table is BUILT BY THE TRAINEE (the ML step of
+  * the workshop). So its query is fault-tolerant: if the table doesn't exist
+  * yet, we log + leave the mirror empty rather than failing boot.
+  *
+@@ -127,7 +127,7 @@ export async function syncFromDelta(
+           // Visualize layer works; the agent's rank tool is the trainee's
+           // Build-2 task anyway.
+           console.warn(
+-            `[sync] disposition_recommendations not available yet (this is the trainee's ML step) — leaving that mirror empty: ${(e as Error).message}`,
++            `[sync] dispo_recs not available yet (this is the trainee's ML step) — leaving that mirror empty: ${(e as Error).message}`,
+           );
+           return [] as never[];
+         })
+@@ -254,7 +254,7 @@ export async function wipeMirroredTables(db: AppDb): Promise<void> {
+     // The writable action table — the only place agent writes land.
+     await tx.execute(sql`TRUNCATE TABLE app.case_actions RESTART IDENTITY CASCADE`);
+     // Read-only mirrors — re-pulled by syncFromDelta after this.
+-    await tx.execute(sql`TRUNCATE TABLE app.disposition_recommendations RESTART IDENTITY CASCADE`);
++    await tx.execute(sql`TRUNCATE TABLE app.dispo_recs RESTART IDENTITY CASCADE`);
+     await tx.execute(sql`TRUNCATE TABLE app.open_queue RESTART IDENTITY CASCADE`);
+     await tx.execute(sql`TRUNCATE TABLE app.payment_position RESTART IDENTITY CASCADE`);
+   });
+diff --git a/specifications/app/00_OVERVIEW.md b/specifications/app/00_OVERVIEW.md
+index b6bb6cf..9d9eda5 100644
+--- a/specifications/app/00_OVERVIEW.md
++++ b/specifications/app/00_OVERVIEW.md
+@@ -14,7 +14,7 @@ AI assistant that **investigates a flagged payment, ranks the best disposition,
+ |-----------|---------------|
+ | **Lakebase** | The read surface (synced read-only `payment_queue` for low-latency per-payment reads) AND the write surface (writable `case_actions` — the app records approved holds/releases/investigations here). Same UC governance as Delta. |
+ | **AI/BI Genie** | `ask_data` tool routes the "why is this payment flagged?" investigation to the Genie space; reasoning streams into the Thinking panel. |
+-| **ML model (UC-registered)** | The `disposition_recommender` model's batch output feeds the agent's ranking — `app.disposition_recommendations(payment_id, recommended_disposition, predicted_improper_probability, predicted_recovery_usd, disposition_ranking, …)` is one of the mirrored tables. The app never calls the model directly; it reads the predictions. |
++| **ML model (UC-registered)** | The `disposition_recommender` model's batch output feeds the agent's ranking — `app.dispo_recs(payment_id, recommended_disposition, predicted_improper_probability, predicted_recovery_usd, disposition_ranking, …)` is one of the mirrored tables. The app never calls the model directly; it reads the predictions. |
+ | **AI Functions (`ai_classify`)** | Signal classification (fraud/eligibility/administrative) + case-priority scoring in SDP, mirrored on the payment row. The queue is sortable by risk_level. |
+ | **Unity AI Gateway** | The assistant's model endpoint is registered through the Gateway — spend cap (**~$500K/yr bounded**), content-filter guardrails, every call logged to a UC inference table and attributable **per case and per program** — the audit trail the IG/GAO need. Talk-track surfaced via a small "AI spend (bounded)" panel/link. |
+ | **MLflow tracing** | Per-turn traces with tool spans. Thumbs up/down → human assessments on traces. |
+@@ -63,7 +63,7 @@ The agent has five tools, chained so the demo loop is visible: (1) **ask Genie**
+ | `ask_data` | Delegates to the Genie space — investigates the flagged payment over the governed lakehouse (fraud signals, improper probability from history), streams reasoning to the Thinking panel | Investigation |
+ | `get_payment` | Queries Lakebase: the open flagged payment for a `{payment_id}` (or the worst flagged case) — amount_usd, program, n_signals, signal_list, risk_level, improper_payment_exposure_usd, projected_recovery_if_investigated_usd | Discovery |
+ | `search_playbook` | Queries Lakebase Search over a benefits-reference table (e.g., `reference_playbooks` or `verification_guides` — name TBD) indexed on case notes + signal types — returns ranked verification guidance, cross-agency contact info, required evidence, typical resolution time. **Powers the "evidence docket" + verification-request drafting** — when ranking dispositions, if "hold-for-verification" is recommended, the agent calls this to auto-fill the verification request with the right agency + evidence checklist. Uses hybrid text/vector retrieval over the reference table indexed in Lakebase Postgres. | Discovery (hold context) |
+-| `rank_disposition` | Queries Lakebase `app.disposition_recommendations` for the `{payment_id}` — returns the model's `recommended_disposition`, `predicted_improper_probability`, `predicted_recovery_usd`, and the full `disposition_ranking` (all three options with their improper-%, recovery $, delay cost). **This is the demo's "ML in the loop" moment** — the agent quotes the ranked options + the recommended disposition in the draft, and recomputes the what-if arithmetically from `disposition_ranking`. | Discovery |
++| `rank_disposition` | Queries Lakebase `app.dispo_recs` for the `{payment_id}` — returns the model's `recommended_disposition`, `predicted_improper_probability`, `predicted_recovery_usd`, and the full `disposition_ranking` (all three options with their improper-%, recovery $, delay cost). **This is the demo's "ML in the loop" moment** — the agent quotes the ranked options + the recommended disposition in the draft, and recomputes the what-if arithmetically from `disposition_ranking`. | Discovery |
+ | `execute_case_action` | Bulk/atomic write to Lakebase `app.case_actions`: records the approved disposition (disposition_chosen, payment_id, case_memo, verification_request, predicted_recovery_usd, examiner_email), appends an audit entry. Inputs are a FILTER (`{payment_id, disposition_chosen, memo_text, verification_request?}`) — never a list of IDs. | Execution (requires approval) |
+ 
+ > **Write tools must trigger a visible UI refresh.** `execute_case_action` MUST publish a `dataMutated` event on commit. The Payment Queue page subscribes and refetches: the Improper-payment-exposure KPI ticks down (by the recovered $), the Flagged-count KPI ticks, the affected payment row flips to "hold in progress" or "investigating" and gains a status badge, the queue re-sorts by residual improper exposure, and any open drawer re-fetches its activity timeline. The user must **see** the queue change without reloading — that live cascade is the moment the demo lands.
+diff --git a/specifications/app/03_DATA_MODEL.md b/specifications/app/03_DATA_MODEL.md
+index 6f23335..e98dd09 100644
+--- a/specifications/app/03_DATA_MODEL.md
++++ b/specifications/app/03_DATA_MODEL.md
+@@ -25,7 +25,7 @@ All tables live in `{lakebase_branch_name}.public` (the default Postgres schema)
+ 
+ **Indexes:** `payment_id`, `program`, `risk_level`.
+ 
+-> The examiner's live disposition + status come from the writable `case_actions` table (LEFT JOIN on the latest action per payment), and the recommended disposition from `disposition_recommendations` — NOT stored on this mirror. The queue read (`server/db/queries/cases.ts`) joins all three.
++> The examiner's live disposition + status come from the writable `case_actions` table (LEFT JOIN on the latest action per payment), and the recommended disposition from `dispo_recs` — NOT stored on this mirror. The queue read (`server/db/queries/cases.ts`) joins all three.
+ 
+ ### 2. `open_queue` (read-only, synced from UC Delta `gold_open_queue`)
+ 
+@@ -41,7 +41,7 @@ One row per flagged payment; the flag context the agent's discovery tools read.
+ 
+ **Indexes:** `payment_id`.
+ 
+-### 3. `disposition_recommendations` (read-only, synced from UC Delta `gold_disposition_recommendations`)
++### 3. `dispo_recs` (read-only, synced from UC Delta `gold_disposition_recommendations`)
+ 
+ One row per flagged payment; the pipeline heuristic's prescribed disposition. Synced by `server/db/sync.ts`. `predicted_recovery_usd` maps from the gold `projected_recovery_if_investigated_usd`; `predicted_cost_usd` from `citizen_delay_cost_usd`.
+ 
+@@ -98,14 +98,14 @@ The app writes to this table after examiner approval. One row per approved case
+ 
+ ## Sync strategy
+ 
+-**Synced tables (read-only):** `payment_position`, `disposition_recommendations`, `payment_fraud_flags` are **Lakebase Synced Tables** — UC Delta tables are continuously replicated to Postgres. Configuration lives in the Lakebase branch spec; the app doesn't manage sync. Sync latency is ~10s (configurable).
++**Synced tables (read-only):** `payment_position`, `dispo_recs`, `payment_fraud_flags` are **Lakebase Synced Tables** — UC Delta tables are continuously replicated to Postgres. Configuration lives in the Lakebase branch spec; the app doesn't manage sync. Sync latency is ~10s (configurable).
+ 
+ **Writable table:** `case_actions` is app-created (not synced). The app writes here; a separate pipeline can read `case_actions` from Lakebase's Postgres and write back to UC Delta as a UC Table if audit trails are needed. For the demo, no write-back — the app's actions are logged to UC via MLflow traces + Unity AI Gateway inference logging.
+ 
+ ## Bootstrap flow (on app start)
+ 
+ 1. **Check Lakebase connectivity** — resolve `{lakebase_branch}` branch connection URI from environment (`LAKEBASE_BRANCH_URL` or `.env`).
+-2. **Verify synced tables exist** — query `information_schema.tables` for `payment_position`, `disposition_recommendations`, `payment_fraud_flags`. If absent, fail with a clear error pointing to `README.md` Milestone 2.
++2. **Verify synced tables exist** — query `information_schema.tables` for `payment_position`, `dispo_recs`, `payment_fraud_flags`. If absent, fail with a clear error pointing to `README.md` Milestone 2.
+ 3. **Create writable tables if absent** — run migrations to create `case_actions` + `reference_playbook` (idempotent CREATE TABLE IF NOT EXISTS).
+ 4. **Create Lakebase Search index** (optional, if not already present) — index `reference_playbook` for hybrid text/vector search on `signal_type` + `verification_steps`.
+ 5. **Test a read** — `SELECT COUNT(*) FROM payment_position` to confirm connectivity.
+@@ -117,7 +117,7 @@ For local development (not demo-in-workspace):
+ 
+ **Option A: Mock data (fast)**
+ - `app/server/db/schema.ts` defines tables.
+-- `app/server/db/mock.ts` seeds fake `payment_position` + `disposition_recommendations` + `case_actions` in-memory or SQLite.
++- `app/server/db/mock.ts` seeds fake `payment_position` + `dispo_recs` + `case_actions` in-memory or SQLite.
+ - `app/.env` sets `USE_MOCK_DB=true`.
+ 
+ **Option B: Real Lakebase branch (recommended for final validation)**
+@@ -130,8 +130,8 @@ For local development (not demo-in-workspace):
+ 
+ **Before shipping:**
+ - `SELECT COUNT(*) FROM payment_position` returns >0 (synced data present).
+-- `SELECT COUNT(*) FROM disposition_recommendations` returns >0.
++- `SELECT COUNT(*) FROM dispo_recs` returns >0.
+ - `SELECT * FROM case_actions LIMIT 1` works (table exists, even if empty).
+ - Insert a test `case_actions` row (manual SQL or app action) → read it back → confirm write works.
+-- `payment_position` + `disposition_recommendations` are readable (read-only constraint enforced at Postgres level via view or role).
+-- Hero payment `PAY-0000214` exists in `payment_position` with `risk_level = 'high'` and a matching row in `disposition_recommendations`.
++- `payment_position` + `dispo_recs` are readable (read-only constraint enforced at Postgres level via view or role).
++- Hero payment `PAY-0000214` exists in `payment_position` with `risk_level = 'high'` and a matching row in `dispo_recs`.
+-- 
+2.50.1 (Apple Git-155)
+
+
+From 0ed6aa69e54bf3130cc561abb361d6b634e97a56 Mon Sep 17 00:00:00 2001
+From: "doug.rogers@databricks.com" <doug.rogers@databricks.com>
+Date: Fri, 28 Aug 2026 12:50:22 +0000
+Subject: [PATCH 2/2] Add script to rename the disposition_recommendations
+ table
+
+---
+ app/scripts/rename_disposition_table.ts | 86 +++++++++++++++++++++++++
+ 1 file changed, 86 insertions(+)
+ create mode 100644 app/scripts/rename_disposition_table.ts
+
+diff --git a/app/scripts/rename_disposition_table.ts b/app/scripts/rename_disposition_table.ts
+new file mode 100644
+index 0000000..4d75a3e
+--- /dev/null
++++ b/app/scripts/rename_disposition_table.ts
+@@ -0,0 +1,86 @@
++// One-off maintenance: rename the production Lakebase mirror table from
++// `app.disposition_recommendations` to `app.dispo_recs`.
++//
++// Run this once while the app's postgres binding points at the PRODUCTION
++// Lakebase branch:
++//   npx tsx --env-file-if-exists=./.env scripts/rename_disposition_table.ts
++//
++// Safety behavior:
++//   - no-op if the rename already happened
++//   - aborts if both old + new table names exist
++//   - aborts if neither table exists
++//   - runs the ALTER inside a transaction on a dedicated connection
++import { createApp, server, lakebase, analytics } from '@databricks/appkit';
++
++await createApp({
++  plugins: [server(), lakebase(), analytics({})],
++  async onPluginsReady(appkit) {
++    const client = await appkit.lakebase.pool.connect();
++    try {
++      const ctx = await client.query<{
++        current_database: string;
++        current_user: string;
++      }>(`
++        SELECT
++          current_database() AS current_database,
++          current_user AS current_user
++      `);
++      const target = ctx.rows[0];
++      console.log(
++        `[rename] connected to database=${target?.current_database ?? 'unknown'} user=${target?.current_user ?? 'unknown'}`,
++      );
++
++      const exists = await client.query<{
++        old_exists: boolean;
++        new_exists: boolean;
++      }>(`
++        SELECT
++          to_regclass('app.disposition_recommendations') IS NOT NULL AS old_exists,
++          to_regclass('app.dispo_recs') IS NOT NULL AS new_exists
++      `);
++      const state = exists.rows[0];
++      const oldExists = Boolean(state?.old_exists);
++      const newExists = Boolean(state?.new_exists);
++
++      if (!oldExists && newExists) {
++        console.log('[rename] app.dispo_recs already exists — nothing to do.');
++        process.exit(0);
++      }
++
++      if (oldExists && newExists) {
++        throw new Error(
++          'Both app.disposition_recommendations and app.dispo_recs exist. Resolve manually before running this migration.',
++        );
++      }
++
++      if (!oldExists && !newExists) {
++        throw new Error(
++          'Neither app.disposition_recommendations nor app.dispo_recs exists on the connected branch.',
++        );
++      }
++
++      console.log('[rename] renaming app.disposition_recommendations -> app.dispo_recs ...');
++      await client.query('BEGIN');
++      await client.query(
++        'ALTER TABLE app.disposition_recommendations RENAME TO dispo_recs',
++      );
++      await client.query('COMMIT');
++
++      const verify = await client.query<{ renamed_exists: boolean }>(`
++        SELECT to_regclass('app.dispo_recs') IS NOT NULL AS renamed_exists
++      `);
++      if (!verify.rows[0]?.renamed_exists) {
++        throw new Error('Rename completed without app.dispo_recs becoming visible.');
++      }
++
++      console.log('[rename] done — app.dispo_recs is now the live table name.');
++      process.exit(0);
++    } catch (error) {
++      await client.query('ROLLBACK').catch(() => undefined);
++      console.error('[rename] failed:', error);
++      process.exit(1);
++    } finally {
++      client.release();
++    }
++  },
++});
+\ No newline at end of file
+-- 
+2.50.1 (Apple Git-155)
+

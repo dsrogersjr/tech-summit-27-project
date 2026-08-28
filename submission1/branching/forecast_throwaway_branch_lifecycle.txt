@@ -1,0 +1,38 @@
+# Throwaway forecasting branch — real Lakebase lifecycle (create → use → tear down)
+#
+# A "forecasting" / what-if branch is a copy-on-write clone of the production
+# Postgres branch: it starts at logical_size_bytes=0 (shares parent pages, so it
+# costs ~nothing), carries a TTL so it auto-expires, and is deleted when done.
+# Profile: fe-sandbox-tech-summit-27-doug   Project: sentenel-tech-summit-27
+# Captured: 2026-08-28
+
+# ── 1. CREATE (copy-on-write off production, 1-hour TTL) ────────────────────
+$ databricks postgres create-branch projects/sentenel-tech-summit-27 forecast-throwaway \
+    --json '{"spec":{"ttl":"3600s"}}' -o json
+{
+  "branch_id": "forecast-throwaway",
+  "name": "projects/sentenel-tech-summit-27/branches/forecast-throwaway",
+  "spec": { "ttl": "3600s" },
+  "status": {
+    "current_state": "READY",
+    "expire_time": "2026-08-28T14:37:50Z",          # auto-expires — throwaway
+    "logical_size_bytes": 0,                         # copy-on-write → costs ~nothing
+    "source_branch": "projects/sentenel-tech-summit-27/branches/production",
+    "source_branch_lsn": "0/228B1C0"
+  },
+  "uid": "br-cold-paper-d8e89r3u"
+}
+
+# ── 2. LIST — both branch uses visible side by side ─────────────────────────
+$ databricks postgres list-branches projects/sentenel-tech-summit-27 -o json
+forecast-throwaway     src=production   expire=2026-08-28T14:37:50Z   size=0          # throwaway forecasting
+dev-app-updates        src=dev          expire=2026-08-28T21:03:56Z   size=40329216   # throwaway (auto-expiring)
+dev                    src=production   expire=none                   size=39739392   # development iteration
+production             src=(root)       expire=none                   size=39649280   # default / promoted
+
+# ── 3. TEAR DOWN ────────────────────────────────────────────────────────────
+$ databricks postgres delete-branch projects/sentenel-tech-summit-27/branches/forecast-throwaway
+exit: 0
+
+$ databricks postgres list-branches projects/sentenel-tech-summit-27 -o json   # confirm gone
+['dev-app-updates', 'dev', 'production']

@@ -1,0 +1,49 @@
+{
+  "source": "live query via @databricks/appkit lakebase pool against Lakebase production branch",
+  "context": {
+    "database": "sentenel_tech_summit_27",
+    "connected_as": "doug.rogers@databricks.com",
+    "branch": "production",
+    "pg_version": "PostgreSQL 17.11 (32e7196) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit"
+  },
+  "before": {
+    "captured_at": "2026-08-28T13:42:15.766Z",
+    "note": "state before the migration was applied to production",
+    "name_check": {
+      "new_table": null,
+      "old_table": "app.disposition_recommendations"
+    },
+    "app_tables": [
+      "case_actions",
+      "conversations",
+      "disposition_recommendations",
+      "feedback",
+      "messages",
+      "open_queue",
+      "payment_position"
+    ]
+  },
+  "migration_applied": {
+    "captured_at": "2026-08-28T13:53Z",
+    "how": "ran the committed, guarded migration app/scripts/rename_disposition_table.ts against the production branch (BEGIN; ALTER TABLE app.disposition_recommendations RENAME TO dispo_recs; COMMIT;)",
+    "authorized_by": "user, directly in this session"
+  },
+  "after": {
+    "captured_at": "2026-08-28T13:54Z",
+    "note": "state after the migration — validates the agent's change",
+    "name_check": {
+      "new_table": "app.dispo_recs",
+      "old_table": null
+    },
+    "dispo_recs_row_count": 43,
+    "app_tables": [
+      "case_actions",
+      "conversations",
+      "dispo_recs",
+      "feedback",
+      "messages",
+      "open_queue",
+      "payment_position"
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "create_time": "2026-08-27T19:08:57Z",
+  "endpoint_id": "primary",
+  "name": "projects/sentenel-tech-summit-27/branches/production/endpoints/primary",
+  "parent": "projects/sentenel-tech-summit-27/branches/production",
+  "status": {
+    "autoscaling_limit_max_cu": 16,
+    "autoscaling_limit_min_cu": 8,
+    "current_state": "ACTIVE",
+    "disabled": false,
+    "endpoint_id": "primary",
+    "endpoint_type": "ENDPOINT_TYPE_READ_WRITE",
+    "group": {
+      "enable_readable_secondaries": false,
+      "max": 1,
+      "min": 1
+    },
+    "hosts": {
+      "host": "ep-lingering-poetry-d8aqkvop.database.us-east-2.cloud.databricks.com",
+      "read_write_pooled_host": "ep-lingering-poetry-d8aqkvop-pooler.database.us-east-2.cloud.databricks.com"
+    },
+    "last_active_time": "2026-08-28T13:05:10Z",
+    "settings": {},
+    "suspend_timeout_duration": "86400s"
+  },
+  "uid": "ep-lingering-poetry-d8aqkvop",
+  "update_time": "2026-08-28T13:05:16Z"
+}

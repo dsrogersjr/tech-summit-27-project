@@ -1,0 +1,9 @@
+# git branch creation — 'dev' off 'main'
+
+$ git reflog show dev
+98422cd dev@{0}: commit: submission1
+0ed6aa6 dev@{1}: merge table-rename: Fast-forward (no commit created; -m option ignored)
+861be91 dev@{2}: branch: Created from origin/main
+
+$ git log --oneline --merges main | head -3   # promotion merge
+6efe430 Merge branch 'dev' into main

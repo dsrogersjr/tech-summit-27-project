@@ -1,0 +1,38 @@
+
+===== whoami  (78.3 ms, 1 rows) =====
+db	usr
+sentenel_tech_summit_27	doug.rogers@databricks.com
+
+===== per_program_summary  (40.3 ms, 5 rows) =====
+program	flagged_payments	total_signals	avg_signals_per_payment	total_exposure_usd
+Veteran's	13	13	1.00	3177.02
+TANF	11	12	1.09	5240.46
+SNAP	8	9	1.13	2563.91
+Child Care	6	6	1.00	1352.30
+Disability	5	5	1.00	1449.99
+
+===== signal_breakdown  (39.2 ms, 21 rows) =====
+program	signal	payment_count
+Child Care	cross_agency_fraud_flag	2
+Child Care	duplicate_identity	2
+Child Care	deceased_payee	1
+Child Care	income_mismatch	1
+Disability	employment_mismatch	2
+Disability	income_mismatch	2
+Disability	cross_agency_fraud_flag	1
+SNAP	income_mismatch	4
+SNAP	cross_agency_fraud_flag	2
+SNAP	employment_mismatch	2
+SNAP	deceased_payee	1
+TANF	income_mismatch	5
+TANF	duplicate_identity	3
+TANF	deceased_payee	2
+TANF	cross_agency_fraud_flag	1
+TANF	residence_mismatch	1
+Veteran's	income_mismatch	6
+Veteran's	cross_agency_fraud_flag	2
+Veteran's	manual_review_flag	2
+Veteran's	residence_mismatch	2
+Veteran's	employment_mismatch	1
+
+WROTE /tmp/lb_signal_breakdown.json
