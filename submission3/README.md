@@ -13,6 +13,7 @@ populated output proving it ran). Real/live; anything not fully live is flagged.
 | **Task 3** — programmatically create the LLM model service + inference table | `model_serving/EVIDENCE.md`, `model_serving/endpoint.json` | `sentinel-agent-llm` (external-model chat proxy of `databricks-gpt-5-4`) created via `app/scripts/create_governed_llm_endpoint.sh`; AI Gateway inference table (`…sentinel_agent_llm_payload`) + usage tracking enabled; endpoint READY; proxy verified with a live query. |
 | **Task 4** — custom guardrail blocking calls that query all data | `guardrails/EVIDENCE.md`, `guardrails/guardrail_samples.json` | `app/server/agent/guardrails.ts` (`queryAllDataGuardrail` input guardrail + `assertNotQueryAllData`) wired into the agent (`inputGuardrails` + `ask_data`/`search_cases`); vitest 13/13; real block/allow samples. |
 | **Task 5** — route the app's LLM requests through Unity/AI Gateway | `model_serving/EVIDENCE.md` | Agent switched to chat-completions (`setOpenAIAPI` in `caseops.ts`) against `sentinel-agent-llm`; `app/config/app.json` `agentModel`; `databricks.yml` app `serving_endpoint` binding + `app.yaml` `SERVING_ENDPOINT`; app SP granted `CAN_QUERY`. |
+| Budget — `tech_summit_27_sentenel` AI-spend governance | `budget_evidence.md`, `budget_usage.json` | The budget policy governing/attributing serverless + AI spend, with its attributed usage from `system.billing.usage`. |
 
 Per-section detail lives in each subfolder's `EVIDENCE.md`.
 
