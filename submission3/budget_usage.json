@@ -1,0 +1,71 @@
+{
+  "query_timestamp": "2026-08-28T16:00:00Z",
+  "workspace_id": "7474651808472462",
+  "budget_policies_found": [
+    "f3f67b92-c3de-3903-b6a2-3f7ee227de07",
+    "0104ea6d-ae1d-3a25-b4bc-e8b53abd4fe5"
+  ],
+  "primary_budget_policy": {
+    "id": "f3f67b92-c3de-3903-b6a2-3f7ee227de07",
+    "presumed_name": "tech_summit_27_sentenel",
+    "note": "Budget policy names are account-level metadata not accessible from workspace APIs. ID confirmed via system.billing.usage."
+  },
+  "usage_records": [
+    {
+      "budget_policy_id": "0104ea6d-ae1d-3a25-b4bc-e8b53abd4fe5",
+      "workspace_id": "7474651808472462",
+      "product": "INTERACTIVE",
+      "sku": "ENTERPRISE_ALL_PURPOSE_SERVERLESS_COMPUTE_US_EAST_OHIO",
+      "date": "2026-08-27",
+      "dbus": 9.9308333333333e-05,
+      "records": 1,
+      "tags": {
+        "Owner": "doug.rogers@databricks.com"
+      },
+      "run_as": "doug.rogers@databricks.com"
+    },
+    {
+      "budget_policy_id": "f3f67b92-c3de-3903-b6a2-3f7ee227de07",
+      "workspace_id": "7474651808472462",
+      "product": "INTERACTIVE",
+      "sku": "ENTERPRISE_ALL_PURPOSE_SERVERLESS_COMPUTE_US_EAST_OHIO",
+      "date": "2026-08-27",
+      "dbus": 4.784228733333333,
+      "records": 19,
+      "tags": {
+        "databricks-default-policy": "true",
+        "Owner": "doug.rogers@databricks.com"
+      },
+      "run_as": "doug.rogers@databricks.com"
+    },
+    {
+      "budget_policy_id": "f3f67b92-c3de-3903-b6a2-3f7ee227de07",
+      "workspace_id": "7474651808472462",
+      "product": "JOBS",
+      "sku": "ENTERPRISE_JOBS_SERVERLESS_COMPUTE_US_EAST_OHIO",
+      "date": "2026-08-27",
+      "dbus": 0.9631542428571429,
+      "records": 6,
+      "tags": {
+        "databricks-default-policy": "true",
+        "dev": "doug_rogers",
+        "Owner": "doug.rogers@databricks.com"
+      },
+      "run_as": "doug.rogers@databricks.com"
+    },
+    {
+      "budget_policy_id": "f3f67b92-c3de-3903-b6a2-3f7ee227de07",
+      "workspace_id": "7474651808472462",
+      "product": "DLT",
+      "sku": "ENTERPRISE_JOBS_SERVERLESS_COMPUTE_US_EAST_OHIO",
+      "date": "2026-08-27",
+      "dbus": 0.52904645,
+      "records": 4,
+      "tags": {
+        "databricks-default-policy": "true",
+        "Owner": "doug.rogers@databricks.com"
+      },
+      "run_as": "doug.rogers@databricks.com"
+    }
+  ]
+}
