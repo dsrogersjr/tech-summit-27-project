@@ -35,6 +35,14 @@ databricks bundle run sentinel_setup \
 After a content change to the app, re-run steps 2 + 5. After a data/resource
 change, re-run 2 + 3 + 5. Re-runs are idempotent (the Genie task updates in place).
 
+Gold→Lakebase **synced tables** (`postgres_synced_tables` in `databricks.yml`)
+are SNAPSHOT copies of `gold_queue_scored`, `gold_open_queue`, and
+`gold_disposition_recommendations`. They land in the `sentinel_sync_storage`
+schema as `*_synced` (not the Drizzle `app.*` mirrors). First deploy of those
+resources should follow a successful `bundle run sentinel_setup` so the gold
+sources exist. Snapshot refreshes after that are on-demand (pipeline / API),
+not continuous.
+
 ## Notes
 - This demo's disposition recommendation is a **pipeline heuristic** (built in the
   SDP gold layer) — there is no ML model, Knowledge Assistant, or Multi-Agent

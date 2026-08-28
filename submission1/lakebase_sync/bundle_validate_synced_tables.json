@@ -1,0 +1,62 @@
+{
+  "captured_at": "2026-08-28T14:08:52Z",
+  "command": "databricks bundle validate -t dev --profile fe-sandbox-tech-summit-27-doug -o json",
+  "note": "CLI accepted resources.postgres_synced_tables. Nested ${resources.schemas.*} interpolations in synced_table_id / source_table_full_name are left as references in this JSON dump; schema names themselves resolve (dev-mode prefix). This is validate-only — the synced tables have not been bundle-deployed yet.",
+  "bundle": {
+    "name": "sentinel-ipp",
+    "target": "dev"
+  },
+  "workspace_root": "/Workspace/Users/doug.rogers@databricks.com/.bundle/sentinel-ipp/dev",
+  "profile": "fe-sandbox-tech-summit-27-doug",
+  "schemas": {
+    "demo_schema": {
+      "catalog_name": "tech_summit_27_sentenel",
+      "name": "dev_doug_rogers_sentinel_ipp"
+    },
+    "sync_pipeline_storage": {
+      "catalog_name": "tech_summit_27_sentenel",
+      "name": "dev_doug_rogers_sentinel_sync_storage"
+    }
+  },
+  "postgres_synced_tables": {
+    "sync_gold_disposition_recommendations": {
+      "branch": "projects/sentenel-tech-summit-27/branches/production",
+      "create_database_objects_if_missing": true,
+      "new_pipeline_spec": {
+        "storage_catalog": "${resources.schemas.sync_pipeline_storage.catalog_name}",
+        "storage_schema": "${resources.schemas.sync_pipeline_storage.name}"
+      },
+      "postgres_database": "sentenel_tech_summit_27",
+      "primary_key_columns": ["payment_id"],
+      "scheduling_policy": "SNAPSHOT",
+      "source_table_full_name": "${resources.schemas.demo_schema.catalog_name}.${resources.schemas.demo_schema.name}.gold_disposition_recommendations",
+      "synced_table_id": "${resources.schemas.sync_pipeline_storage.catalog_name}.${resources.schemas.sync_pipeline_storage.name}.gold_disposition_recommendations_synced"
+    },
+    "sync_gold_open_queue": {
+      "branch": "projects/sentenel-tech-summit-27/branches/production",
+      "create_database_objects_if_missing": true,
+      "new_pipeline_spec": {
+        "storage_catalog": "${resources.schemas.sync_pipeline_storage.catalog_name}",
+        "storage_schema": "${resources.schemas.sync_pipeline_storage.name}"
+      },
+      "postgres_database": "sentenel_tech_summit_27",
+      "primary_key_columns": ["payment_id"],
+      "scheduling_policy": "SNAPSHOT",
+      "source_table_full_name": "${resources.schemas.demo_schema.catalog_name}.${resources.schemas.demo_schema.name}.gold_open_queue",
+      "synced_table_id": "${resources.schemas.sync_pipeline_storage.catalog_name}.${resources.schemas.sync_pipeline_storage.name}.gold_open_queue_synced"
+    },
+    "sync_gold_queue_scored": {
+      "branch": "projects/sentenel-tech-summit-27/branches/production",
+      "create_database_objects_if_missing": true,
+      "new_pipeline_spec": {
+        "storage_catalog": "${resources.schemas.sync_pipeline_storage.catalog_name}",
+        "storage_schema": "${resources.schemas.sync_pipeline_storage.name}"
+      },
+      "postgres_database": "sentenel_tech_summit_27",
+      "primary_key_columns": ["payment_id"],
+      "scheduling_policy": "SNAPSHOT",
+      "source_table_full_name": "${resources.schemas.demo_schema.catalog_name}.${resources.schemas.demo_schema.name}.gold_queue_scored",
+      "synced_table_id": "${resources.schemas.sync_pipeline_storage.catalog_name}.${resources.schemas.sync_pipeline_storage.name}.gold_queue_scored_synced"
+    }
+  }
+}

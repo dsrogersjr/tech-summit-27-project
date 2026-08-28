@@ -40,7 +40,7 @@ item at the bottom.
 | 3 | Operational schema modeled: related tables + keys | ✅ construct + live | `schema/operational_schema_model.md`, `schema/schema_excerpt.ts`, `schema/0000_concerned_killraven.sql`, `schema/0000_snapshot.json` |
 | 4 | Separate writable Postgres tables, distinct from read-only synced table | ✅ construct + live exec | `lakebase_sync/writable_tables_execution.md`, `lakebase_sync/writable_tables_result.json` |
 | 5 | Reverse Lakehouse Sync → UC Delta | ✅ (already verified) | `reverse_sync`, `reverse_sync_sample.json` |
-| 6 | Sync defined as code (DAB/Terraform), not UI-only | ✅ construct | `lakebase_sync/sync_as_code.md`, `lakebase_sync/sync_ts_excerpt.ts` |
+| 6 | Sync defined as code (DAB/Terraform), not UI-only | ✅ construct + validate (not yet deployed) | `lakebase_sync/sync_as_code.md`, `lakebase_sync/databricks_synced_tables.yml`, `lakebase_sync/bundle_validate_synced_tables.json` |
 | 7 | Reverse-synced Delta shows SCD Type 2 + system metadata columns | ✅ (already verified) | `reverse_sync`, `reverse_sync_sample.json` |
 
 ### Branching

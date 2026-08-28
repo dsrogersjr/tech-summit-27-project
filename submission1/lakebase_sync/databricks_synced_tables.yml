@@ -1,0 +1,46 @@
+# Excerpt from databricks.yml (repo root) — Gold → Lakebase SNAPSHOT syncs.
+# Source: resources.schemas + resources.postgres_synced_tables.
+# Destinations are *_synced in sentinel_sync_storage, not Drizzle app.* mirrors.
+
+schemas:
+  sync_pipeline_storage:
+    name: sentinel_sync_storage
+    catalog_name: ${var.catalog}
+    comment: "Lakeflow storage for Lakebase Gold→Postgres synced-table pipelines (not the Gold demo schema)."
+
+postgres_synced_tables:
+  sync_gold_queue_scored:
+    synced_table_id: ${resources.schemas.sync_pipeline_storage.catalog_name}.${resources.schemas.sync_pipeline_storage.name}.gold_queue_scored_synced
+    source_table_full_name: ${resources.schemas.demo_schema.catalog_name}.${resources.schemas.demo_schema.name}.gold_queue_scored
+    primary_key_columns: [payment_id]
+    scheduling_policy: SNAPSHOT
+    postgres_database: ${var.lakebase_database_name}
+    branch: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}
+    create_database_objects_if_missing: true
+    new_pipeline_spec:
+      storage_catalog: ${resources.schemas.sync_pipeline_storage.catalog_name}
+      storage_schema: ${resources.schemas.sync_pipeline_storage.name}
+
+  sync_gold_open_queue:
+    synced_table_id: ${resources.schemas.sync_pipeline_storage.catalog_name}.${resources.schemas.sync_pipeline_storage.name}.gold_open_queue_synced
+    source_table_full_name: ${resources.schemas.demo_schema.catalog_name}.${resources.schemas.demo_schema.name}.gold_open_queue
+    primary_key_columns: [payment_id]
+    scheduling_policy: SNAPSHOT
+    postgres_database: ${var.lakebase_database_name}
+    branch: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}
+    create_database_objects_if_missing: true
+    new_pipeline_spec:
+      storage_catalog: ${resources.schemas.sync_pipeline_storage.catalog_name}
+      storage_schema: ${resources.schemas.sync_pipeline_storage.name}
+
+  sync_gold_disposition_recommendations:
+    synced_table_id: ${resources.schemas.sync_pipeline_storage.catalog_name}.${resources.schemas.sync_pipeline_storage.name}.gold_disposition_recommendations_synced
+    source_table_full_name: ${resources.schemas.demo_schema.catalog_name}.${resources.schemas.demo_schema.name}.gold_disposition_recommendations
+    primary_key_columns: [payment_id]
+    scheduling_policy: SNAPSHOT
+    postgres_database: ${var.lakebase_database_name}
+    branch: projects/${var.lakebase_project_id}/branches/${var.lakebase_branch_id}
+    create_database_objects_if_missing: true
+    new_pipeline_spec:
+      storage_catalog: ${resources.schemas.sync_pipeline_storage.catalog_name}
+      storage_schema: ${resources.schemas.sync_pipeline_storage.name}
