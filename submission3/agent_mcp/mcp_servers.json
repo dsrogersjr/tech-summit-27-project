@@ -1,0 +1,21 @@
+{
+  "current_workspace": "https://fe-sandbox-tech-summit-27-doug.cloud.databricks.com",
+  "profile": "fe-sandbox-tech-summit-27-doug",
+  "databricks_ai_tools_enabled": true,
+  "claude_base_url": "https://fe-sandbox-tech-summit-27-doug.cloud.databricks.com/ai-gateway/anthropic",
+  "claude_models": {
+    "opus": "system.ai.claude-opus-4-8",
+    "sonnet": "system.ai.claude-sonnet-5",
+    "haiku": "system.ai.claude-haiku-4-5"
+  },
+  "mcp_servers": [
+    {
+      "name": "system-ai-slack",
+      "url": "https://fe-sandbox-tech-summit-27-doug.cloud.databricks.com/ai-gateway/mcp-services/system.ai.slack",
+      "auth": "proxy",
+      "clients": [
+        "claude"
+      ]
+    }
+  ]
+}
