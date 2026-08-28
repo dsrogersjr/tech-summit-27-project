@@ -53,14 +53,14 @@ const STORY = {
 
 const STARTER_QUESTIONS = [
   'How much improper-payment exposure are we at risk of?',
-  'What fraud signals triggered the flags on Payment PAY-0000214?',
-  'What is the recommended disposition for Payment PAY-0000214?',
+  'Why is Payment PAY-0000202 flagged?',
+  'What is the recommended disposition for Payment PAY-0000202?',
 ];
 
 // The featured action's copy is inlined in the JSX below — the section is just
 // HTML, edit it freely. The prompt text is the single thing the agent runs.
 const FEATURED_ACTION_PROMPT =
-  'Payment PAY-0000214 is flagged with high-risk signals. Investigate the fraud flags, rank the recommended dispositions (hold for verification vs release vs refer to investigation), draft the case action, and wait for my approval before recording it.';
+  'Payment PAY-0000202 (TANF, MN, $3,227.73) is flagged for cross_agency_fraud_flag and income_mismatch, with about $2,582.18 in improper-payment exposure. Investigate the signals, rank hold_for_verification vs release vs refer_to_investigation, explain the 72-hour model recommendation, draft the case action, and wait for my approval before recording a 48-hour examiner-approved hold.';
 
 export function HomeView() {
   const { config, configError, retry: retrySession } = useSession();
@@ -180,18 +180,17 @@ export function HomeView() {
                 Let the assistant handle it
               </div>
               <h3 className="display text-2xl font-semibold mb-2 leading-tight">
-                Recover the northern shortage — ranked by model
+                Stop PAY-0000202 (TANF · MN) before disbursement
               </h3>
               <p className="hidden sm:block text-sm opacity-85 leading-relaxed mb-5 max-w-2xl">
-                The assistant identifies the 30 stores out of the top 5 SKUs,
-                ranks the recovery moves (transfer from southern surplus,
-                expedite from warehouse, substitute with available colorway),
-                and drafts the transfer request. You review and approve —
-                it records the action and watches it execute.
+                The assistant explains the cross-agency fraud and income-mismatch
+                signals, compares all three dispositions, and recommends a
+                72-hour hold. You review the evidence, approve a 48-hour hold,
+                and record an action protecting about $1,678 in predicted recovery.
               </p>
               <p className="sm:hidden text-sm opacity-85 leading-relaxed mb-5">
-                Identify shortfalls, rank recovery moves, draft requests —
-                approve before anything ships.
+                Investigate the signals, compare dispositions, and approve a
+                48-hour hold before funds move.
               </p>
               <button
                 onClick={() =>
@@ -224,7 +223,8 @@ function JourneyDiagram({
     {
       icon: Eye,
       title: `${heroName} opens Operations`,
-      description: 'The shortfall queue is waiting. Store map glowing red.',
+      description:
+        'The flagged-payment queue is prioritized by improper-payment exposure. PAY-0000202 is ready for review.',
       action: () => {
         // const nav = useNavigate() won't work here; we'd need to refactor.
         // For now, just show a note that clicking navigates.
@@ -236,7 +236,7 @@ function JourneyDiagram({
       icon: MessageCircleQuestion,
       title: `${heroName} asks the assistant`,
       description:
-        'Why is Store 214 out of stock on the Parka? The AI digs into velocity, replenishment, regional demand.',
+        'Why is PAY-0000202 flagged? The assistant finds cross-agency fraud and income-mismatch evidence.',
       action: () => {
         dockController.newAndSend(script[0]?.prompt ?? STARTER_QUESTIONS[0]);
       },
@@ -244,9 +244,9 @@ function JourneyDiagram({
     },
     {
       icon: Brain,
-      title: 'AI ranks the recovery move',
+      title: 'AI ranks the disposition',
       description:
-        'Transfer from Store 387 in the South (best net value). Expedite from warehouse (faster). Substitute nearby colorway.',
+        'Hold for verification leads release and investigation. The model recommends 72 hours and predicts about $1,678 recovery.',
       action: () => {
         dockController.open();
       },
@@ -254,12 +254,13 @@ function JourneyDiagram({
     },
     {
       icon: CheckCircle2,
-      title: `${heroName} approves the transfer`,
-      description: 'Done. Units ship from Store 387 to Store 214 by tomorrow.',
+      title: `${heroName} approves the hold`,
+      description:
+        'Della approves a 48-hour hold. The action and audit trail write back to Lakebase.',
       action: () => {
         dockController.openAndSend(
           script[1]?.prompt ??
-            'Record the transfer from Store 387 to Store 214.',
+            'Approve and record a 48-hour hold_for_verification for PAY-0000202.',
         );
       },
       actionLabel: script[1]?.label ?? 'Record',

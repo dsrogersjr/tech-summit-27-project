@@ -57,7 +57,9 @@ import {
   getRecommendation,
 } from '../db/queries/index.js';
 import { embedText } from './tools/embed.js';
+import { createSearchPlaybookTool } from './tools/playbooks.js';
 import { queryAllDataGuardrail, assertNotQueryAllData } from './guardrails.js';
+import { assertCanExecuteCaseAction } from '../lib/roles.js';
 // The data-backend helpers. Both are config-driven and share the same
 // DataCallResult shape + ToolProgressEvent stream, so the `ask_data` tool
 // below can delegate to EITHER without the UI caring which powers it. This
@@ -154,7 +156,7 @@ function makeTools(ctx: AgentContext): Tool[] {
       payment_id: z
         .string()
         .nullable()
-        .describe('Payment id, e.g. PAY-0000214. Null → return the worst open flagged payment.'),
+        .describe('Payment id, e.g. PAY-0000202. Null → return the worst open flagged payment.'),
     }),
     execute: async ({ payment_id }) =>
       mlflow.withSpan(
@@ -207,7 +209,7 @@ function makeTools(ctx: AgentContext): Tool[] {
     description:
       "Read the model's ranked dispositions for a payment from Lakebase app.dispo_recs: the recommended disposition, its predicted recovery $ + net value, and the full ranking of all three options (release / hold_for_verification / refer_to_investigation) with each option's hold hours, cost, predicted recovery $ and net $. Read-only. Quote these in the draft; do the what-if (recovery vs. citizen-delay cost) arithmetically from the ranking.",
     parameters: z.object({
-      payment_id: z.string().describe('Payment id, e.g. PAY-0000214.'),
+      payment_id: z.string().describe('Payment id, e.g. PAY-0000202.'),
     }),
     execute: async ({ payment_id }) =>
       mlflow.withSpan(
@@ -246,9 +248,9 @@ function makeTools(ctx: AgentContext): Tool[] {
   const executeRecoveryAction = tool({
     name: 'execute_case_action',
     description:
-      "WRITE (requires prior examiner approval): record the approved disposition to Lakebase app.case_actions — action_type (release / hold_for_verification / refer_to_investigation), hold duration, the drafted memo, predicted recovery $ — and append an audit entry. Inputs are a FILTER + the drafted memo text, never a list of ids. Use ONLY after the examiner says yes.",
+      "WRITE (requires prior supervisor approval): record the approved disposition to Lakebase app.case_actions — action_type (release / hold_for_verification / refer_to_investigation), hold duration, the drafted memo, predicted recovery $ — and append an audit entry. Inputs are a FILTER + the drafted memo text, never a list of ids. Use ONLY after the supervisor says yes.",
     parameters: z.object({
-      payment_id: z.string().describe('The payment being dispositioned, e.g. PAY-0000214.'),
+      payment_id: z.string().describe('The payment being dispositioned, e.g. PAY-0000202.'),
       action_type: z
         .enum(['release', 'hold_for_verification', 'refer_to_investigation'])
         .describe('The approved disposition.'),
@@ -273,6 +275,12 @@ function makeTools(ctx: AgentContext): Tool[] {
     }) =>
       mlflow.withSpan(
         async () => {
+          // Authorization is enforced at the write boundary, independent of
+          // model instructions or prior conversation state.
+          assertCanExecuteCaseAction(
+            ctx.userEmail,
+            process.env.SUPERVISOR_EMAILS,
+          );
           // Human-in-the-loop WRITE. Reached only after the examiner approved
           // in chat (Phase 3). Wrapped in a transaction; the payment's live
           // state is derived on the NEXT read via the payment_position ⟕
@@ -320,7 +328,7 @@ function makeTools(ctx: AgentContext): Tool[] {
                 predictedRecoveryUsd: predicted_recovery_usd,
                 status: 'approved',
                 approvedBy: ctx.userEmail,
-                reviewedByRole: 'examiner',
+                reviewedByRole: 'supervisor',
                 auditTrail: [audit],
                 decidedAt: now,
               })
@@ -426,7 +434,9 @@ function makeTools(ctx: AgentContext): Tool[] {
       ),
   });
 
-  // find_flag / rank_dispositions / execute_case_action / search_cases read
+  const searchPlaybook = createSearchPlaybookTool(ctx);
+
+  // find_flag / rank_dispositions / execute_case_action / search tools read
   // and act on Lakebase; ask_data (registered only when a Genie/MAS backend is
   // configured) reads the governed lakehouse. All spanned by MLflow.
   const tools: Tool[] = [
@@ -434,6 +444,7 @@ function makeTools(ctx: AgentContext): Tool[] {
     rankRecoveryMoves,
     executeRecoveryAction,
     searchCases,
+    searchPlaybook,
   ];
   if (ctx.masEndpointName || ctx.genieSpaceId) {
     tools.unshift(askData);
@@ -606,12 +617,18 @@ execute_case_action(payment_id, action_type, hold_duration_hours, drafted_reques
   predicted_recovery_usd) — THE WRITE. Records the approved disposition
   (release / hold_for_verification / refer_to_investigation) to Lakebase
   app.case_actions with an audit entry, attributed to you. Use ONLY after the
-  examiner has explicitly approved.
+  user has explicitly approved. The write succeeds only for supervisors.
 
 search_cases(query, limit) — semantic search over the flagged-payment disposition
   reasoning using the in-Lakebase pgvector index (retrieval happens IN Lakebase,
   not a separate store). Use to pull up cases similar to a described situation
   (e.g. "deceased payee with income mismatch"). Read-only.
+
+search_playbook(query, limit) — semantic search over curated federal benefits
+  verification guides in Lakebase. Before drafting ANY hold-for-verification
+  request, call this with the payment's program + signals and ground the draft
+  in the returned evidence, documents, steps, hold guidance, and authority.
+  Read-only.
 
 THERE ARE NO OTHER TOOLS.
 
@@ -628,7 +645,9 @@ explicitly asked.
 MODE B — DISPOSITION CHAIN (HUMAN-IN-THE-LOOP)
 If the user asks you to HANDLE / DISPOSITION / HOLD / RELEASE / REFER a payment,
 run a strict three-phase chain with a confirmation step in the middle. NEVER run
-Phase 3 (execute_case_action) until the examiner has explicitly approved.
+Phase 3 (execute_case_action) until the user has explicitly approved. Only a
+supervisor can complete Phase 3; examiners retain all read, search, rank, and
+draft capabilities.
 
 --- Phase 1 · Discover (read-only) ---
   1. If you don't already know the target payment, call find_flag(null) for the
@@ -636,16 +655,19 @@ Phase 3 (execute_case_action) until the examiner has explicitly approved.
   2. Call find_flag(payment_id) to read the live flag (signals, risk, exposure).
   3. Call rank_dispositions(payment_id) — THE ML MOMENT. Remember the recommended
      disposition + the full ranking; you quote them in Phase 2.
+  4. If the recommendation or requested action is hold_for_verification, call
+     search_playbook with the program + signals BEFORE drafting the request.
 
 --- Phase 2 · Draft + confirm (STOP) ---
-  4. Present the ranked dispositions (release / hold_for_verification /
+  5. Present the ranked dispositions (release / hold_for_verification /
      refer_to_investigation), each with hold hours, cost, predicted recovery $ and
      net $. Recommend the top one and explain WHY (e.g. "Hold 72 hours on
      PAY-0000202 — predicted +$1,678 recovery for ~$48 verification cost; two
      strong signals don't justify releasing funds before identity is confirmed").
      Offer a what-if ("what if we release instead of hold?") computed
-     arithmetically from the ranking. Draft the verification-request / referral memo.
-  5. End with: "Reply **approve** to record this disposition — or tell me what to
+     arithmetically from the ranking. Draft the verification request using the
+     retrieved playbook authority and steps, or draft the referral memo.
+  6. End with: "Reply **approve** to record this disposition — or tell me what to
      change." STOP HERE. Do not proceed until the user's next message.
 
 --- Phase 3 · Execute (on approval) ---
@@ -655,7 +677,8 @@ Phase 3 (execute_case_action) until the examiner has explicitly approved.
   On approval: call execute_case_action ONCE with the approved payment_id +
   action_type + hold_duration_hours + the drafted memo + predicted_recovery_usd.
   Then summarize what was recorded (see SUMMARY FORMAT). Numbers come from the
-  tool result, not memory.
+  tool result, not memory. If authorization is denied, state clearly that only a
+  supervisor in SUPERVISOR_EMAILS can record it; do not claim it was recorded.
 
 If a tool errors, surface the error plainly — never pretend a tool ran.
 

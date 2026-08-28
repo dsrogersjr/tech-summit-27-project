@@ -33,7 +33,7 @@ SPACE_DESCRIPTION = (
     "cross-agency fraud-match feed + eligibility refresh ~3 weeks ago surfaced a "
     "spike of high-risk flagged payments; each point of improper rate prevented "
     "is ~$600M/yr. Ask about queue exposure, per-program risk, and the prescribed "
-    "disposition for a flagged payment like PAY-0000214."
+    "disposition for the live TANF hero payment PAY-0000202."
 )
 
 # The catalog.schema baked into the committed genie_space.json (authored against

@@ -1,17 +1,18 @@
 # Sentinel Payment Integrity — Workshop Build Guide (for an AI coding agent)
 
 > **Read this if you are an AI agent (Genie Code / Claude Code) implementing the graded gaps.**
-> This app is a **bootstrap**, not a finished demo. It boots and ships three things working:
+> This app began as a **bootstrap** and now ships the full closed loop:
 > **(1)** the plumbing (routing, OBO auth, MLflow tracing, SSE streaming, chat dock),
 > **(2) Layer 1 — Visualize** (the payment-flag queue reading Lakebase),
-> **(3)** the agent loop with a working `ask_data` tool (Genie/MAS investigation).
-> You (the trainee, with an agent) build the rest: **Layer 2 — Assist**, **Layer 3 — Act**, and **Build 3 — Unity AI Gateway**. Each section below tells you EXACTLY what ships vs what you build, the exact file paths + signatures + Lakebase tables/columns, the acceptance check, and a prompt you can paste to an agent to do it.
+> **(3)** the agent loop with `ask_data` (Genie/MAS), **Assist** (`find_flag`,
+> `rank_dispositions`), and human-approved **Act** (`execute_case_action`).
+> The sections below document the implemented tools, their contracts, and checks.
 
 ---
 
 ## The story (one paragraph)
 
-The fraud model flagged a wave of improper-payment signals across the agency's benefits portfolio. ~397 payments are flagged with at least one signal (duplicates, agency mismatches, income violations = **improper_payment_exposure** ~$361K). The hero: **PAY-0000214** is flagged for **`duplicate_identity`** + **`cross_agency_fraud_flag`**, recommended disposition is **hold** (48–72 hours). The queue is prioritized by risk, and Della Okonkwo (Deputy Commissioner for Program Integrity) stares at it each morning. The whole app answers one hero question: **"Payment 214 is flagged — what's the best disposition?"**
+The current live hero is **PAY-0000202**: a **$3,227.73 TANF payment in Minnesota** flagged for **`cross_agency_fraud_flag`** + **`income_mismatch`**, with about **$2,582.18 improper-payment exposure**. The current pipeline heuristic recommends **`hold_for_verification` for 72 hours** and predicts about **$1,678 recovery**; Della approved a **48-hour hold**. The queue is prioritized by risk, and the app answers one hero question: **"Why is PAY-0000202 flagged, and should we release it, hold it, or refer it to investigation?"**
 
 The three layers map 1:1 to the enablement build arc: **Visualize (Build-2 Apps)** → **Assist (Build-2 Apps + the ML step)** → **Act (Build-2 Apps)**, all governed by **Unity AI Gateway (Build 3)**.
 
@@ -28,7 +29,11 @@ The app mirrors these Gold tables into Lakebase Postgres (`app.*`) at boot (see 
 | `dispo_recs` | `gold_disposition_recommendations` | yes (synced) | `payment_id`, `signal_type`, `recommended_disposition`, `recommended_hold_hours`, `predicted_recovery_usd`, `predicted_cost_usd`, `action_ranking` (JSONB: all three options) |
 | **`case_actions`** | — (the app's own) | **NO — writable** | `id`(uuid), `payment_id`, `signal_type`, `action_type`, `hold_duration_hours`, `drafted_request`, `predicted_recovery_usd`, `status`, `approved_by`, `reviewed_by_role`, `audit_trail`(jsonb), `created_at`, `decided_at` |
 
-> **`gold_disposition_recommendations` is NOT built yet.** It is produced by the ML step of Build 2 (`specifications/03-ml-disposition.md`). The app tolerates it being absent — `server/db/sync.ts` catches `TABLE_OR_VIEW_NOT_FOUND` and leaves that mirror empty, so the app boots and the Visualize layer works. **Once you build + score the model into `gold_disposition_recommendations`, restart the app (or hit the Reset-demo button) and the mirror fills.** Then `rank_dispositions` (below) returns real data.
+> **`gold_disposition_recommendations` is built and mirrored into `app.dispo_recs`.**
+> Its current recommendations are produced by the pipeline's validated heuristic;
+> the ML workflow in `specifications/03-ml-disposition.md` remains an optional
+> replacement. The sync path still tolerates a temporarily unavailable source so
+> the Visualize layer can boot, but the live Assist flow expects recommendation rows.
 
 The Drizzle schema for all of the above is in `server/db/schema.ts`; ready-made query helpers are in `server/db/queries/cases.ts`.
 
@@ -52,7 +57,7 @@ The Drizzle schema for all of the above is in `server/db/schema.ts`; ready-made 
 
 The synced mirrors + the writable `case_actions` table are the Build-1 answer key, already modeled in `server/db/schema.ts` and synced in `server/db/sync.ts`. Your Build-1 workshop task in the workspace is to set up the **real Lakebase Synced Tables** for the three Gold tables and pick your **`ask_data` backend** (a Genie space OR a MAS endpoint):
 
-- Set **ONE** of `GENIE_SPACE_ID` / `MAS_ENDPOINT_NAME` in `.env` (or the DAB). The app registers whichever is set as the `ask_data` tool — no code change needed. The default Sentinel flow uses **Genie** ("ask why Payment 214 is flagged").
+- Set **ONE** of `GENIE_SPACE_ID` / `MAS_ENDPOINT_NAME` in `.env` (or the DAB). The app registers whichever is set as the `ask_data` tool — no code change needed. The default Sentinel flow uses **Genie** ("ask why PAY-0000202 is flagged").
 
 **Acceptance:** open the app → chat → ask *"Which payments have the highest fraud risk?"* → the Thinking panel shows the `ask_data` investigation and you get a synthesized answer.
 
@@ -60,9 +65,10 @@ The synced mirrors + the writable `case_actions` table are the Build-1 answer ke
 
 ## Layer 2 — Assist (Build 2): `find_flag` + `rank_dispositions`
 
-**What SHIPS working:** the full agent loop, `ask_data`, and the three-phase instructions in `server/agent/caseops.ts` that TELL the model to call these tools. Both tools are **registered** (so the model + tool list know they exist) but **throw `"Not implemented"`** until you implement them.
-
-**What YOU build:** replace the two stub `execute` bodies in `server/agent/caseops.ts`. The Lakebase query helpers are already written in `server/db/queries/cases.ts` — you mostly wire them up.
+**What ships working:** the full agent loop, `ask_data`, and both registered
+Assist tools. `find_flag` reads the live flag context and `rank_dispositions`
+returns the current recommendation plus all three ranked options from Lakebase.
+The query helpers live in `server/db/queries/cases.ts`.
 
 ### 2a. `find_flag`
 
@@ -85,7 +91,9 @@ Read the live flagged payment for a payment×signal (or the worst open flag) + i
 
 ### 2b. `rank_dispositions`
 
-Read the ML model's ranked dispositions — **the demo's "ML in the loop" moment.**
+Read the ranked dispositions — **the demo's governed recommendation moment.**
+The live recommendation is currently generated by the pipeline heuristic; the
+tool contract also supports recommendations produced by the optional ML path.
 
 - **File:** `server/agent/caseops.ts`, the tool named `rank_dispositions`.
 - **Signature (already declared):** `rank_dispositions({ payment_id: string, signal_type: string })`.
@@ -107,9 +115,8 @@ Read the ML model's ranked dispositions — **the demo's "ML in the loop" moment
 
 ## Layer 3 — Act (Build 3): `execute_case_action` (the human-in-the-loop write)
 
-**What SHIPS working:** stub tool definition (throws until you implement).
-
-**What YOU build:** the tool's `execute` body — the single WRITE point in the app.
+**What ships working:** the implemented tool definition and transaction-backed
+write path — the single WRITE point in the app.
 
 ### The tool's role
 

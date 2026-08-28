@@ -15,16 +15,17 @@
  * app still boots.
  */
 import type { Request } from 'express';
+import { normalizeEmail, roleForEmail, type UserRole } from './roles.js';
 
 const PLACEHOLDER_EMAIL = 'local_user@databricks.com';
 
 export function getCurrentUserEmail(req: Request): string {
   const h = req.headers;
   const forwardedEmail = (h['x-forwarded-email'] as string) ?? '';
-  if (forwardedEmail) return forwardedEmail;
+  if (forwardedEmail) return normalizeEmail(forwardedEmail);
   const forwardedUser = (h['x-forwarded-user'] as string) ?? '';
-  if (forwardedUser.includes('@')) return forwardedUser;
-  return process.env.DEV_USER_EMAIL ?? PLACEHOLDER_EMAIL;
+  if (forwardedUser.includes('@')) return normalizeEmail(forwardedUser);
+  return normalizeEmail(process.env.DEV_USER_EMAIL ?? PLACEHOLDER_EMAIL);
 }
 
 export type UserInfo = {
@@ -32,6 +33,7 @@ export type UserInfo = {
   userEmail: string | null;
   workspaceUrl: string;
   workspaceId: string | null;
+  role: UserRole;
 };
 
 export function getCurrentUserInfo(req: Request): UserInfo {
@@ -41,11 +43,12 @@ export function getCurrentUserInfo(req: Request): UserInfo {
     (h['x-forwarded-user'] as string) ??
     process.env.USER ??
     'dev-user';
-  const userEmail = (h['x-forwarded-email'] as string) ?? null;
+  const userEmail = getCurrentUserEmail(req);
   return {
     userName,
     userEmail,
     workspaceUrl: process.env.DATABRICKS_HOST ?? '',
     workspaceId: process.env.DATABRICKS_WORKSPACE_ID ?? null,
+    role: roleForEmail(userEmail, process.env.SUPERVISOR_EMAILS),
   };
 }

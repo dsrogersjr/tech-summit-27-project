@@ -2,13 +2,18 @@
 
 ## Shared Context (referenced by all other spec files)
 
-**The story in one sentence:** The Benefits Agency loses ~6% of its ~$60B outlays (~$3.6B/yr) to improper payments, caught today *after* disbursement via slow "pay-and-chase" recovery; Sentinel prevents them *pre-disbursement*. A cross-agency fraud-match feed + eligibility-data refresh ~3 weeks ago surfaced a spike of high-risk pre-disbursement payments flagged by multiple fraud signals. The hero payment `PAY-0000214` (TANF, $1,850) carries stacked signals (duplicate identity, cross-agency fraud flag) → prescribed disposition = **hold-for-verification**. The pattern shows a learnable 3-way split: high-risk stacked signals → investigate; moderate single signals → often release; low-risk → release. **Every point of improper-payment rate prevented pre-disbursement is ~$600M/yr** (1 point of the ~6% rate on ~$60B outlays).
+**The story in one sentence:** The Benefits Agency loses ~6% of its ~$60B outlays (~$3.6B/yr) to improper payments, caught today *after* disbursement via slow "pay-and-chase" recovery; Sentinel prevents them *pre-disbursement*. A cross-agency fraud-match feed + eligibility-data refresh ~3 weeks ago surfaced a spike of high-risk pre-disbursement payments flagged by multiple fraud signals. The live hero payment `PAY-0000202` (TANF, MN, $3,227.73) carries `cross_agency_fraud_flag` + `income_mismatch`, with ~$2,582.18 exposure → the current heuristic prescribes **hold-for-verification for 72 hours**; the examiner approved 48 hours, with about $1,678 predicted recovery. The pattern shows a learnable 3-way split: high-risk stacked signals → investigate; moderate single signals → often release; low-risk → release. **Every point of improper-payment rate prevented pre-disbursement is ~$600M/yr** (1 point of the ~6% rate on ~$60B outlays).
 
 **Key payment:**
-- **Payment ID:** `PAY-0000214`
+- **Payment ID:** `PAY-0000202`
 - **Program:** TANF
-- **Amount:** $1,850 USD
-- **Fraud signals:** duplicate_identity, cross_agency_fraud_flag (2 stacked strong signals)
+- **Amount:** $3,227.73 USD
+- **State:** MN
+- **Fraud signals:** cross_agency_fraud_flag, income_mismatch
+- **Improper-payment exposure:** ~$2,582.18
+- **Recommendation:** hold_for_verification for 72 hours (current heuristic)
+- **Examiner decision:** approved hold_for_verification for 48 hours
+- **Predicted recovery:** about $1,678
 - **Recommended disposition:** hold-for-verification (high projected recovery if improper; cost of delay justified by signal strength)
 
 **Time references:**
@@ -51,9 +56,9 @@ Write the raw datasets as **parquet files into the UC Volume** `/Volumes/{catalo
 
 | Table | Rows | Notes |
 |-------|------|-------|
-| `raw_beneficiaries` | ~1,100 | Active beneficiary records. Program, state, income, signal tags. The hero beneficiary (index 213 → BEN-0000214) carries MULTIPLE strong signals (duplicate identity + cross-agency flag). Everyday beneficiaries carry 0–1 signals. |
+| `raw_beneficiaries` | ~1,100 | Active beneficiary records. Program, state, income, signal tags. The live hero beneficiary for PAY-0000202 carries a cross-agency fraud flag plus an income mismatch. Everyday beneficiaries carry 0–1 signals. |
 | `raw_claims` | ~1,200 | Benefit claims (recertifications, new applications, adjustments) that feed the payment queue. One claim per beneficiary × period; some denied, some combined. Amount by program (TANF ~$400–1,200, SNAP ~$150–600, Child Care ~$800–2,000, etc.). |
-| `raw_payments` | ~1,100 | Pre-disbursement queue: queued benefit disbursements. Beneficiary → claim → amount → in queue now. Hero payment `PAY-0000214` high-amount + stacked fraud signals. |
+| `raw_payments` | ~1,100 | Pre-disbursement queue: queued benefit disbursements. Beneficiary → claim → amount → in queue now. Live hero payment `PAY-0000202` is a high-amount TANF payment with stacked fraud and eligibility signals. |
 | `raw_payment_fraud_flags` | ~300 | (Payment × signal) pairs — the fraud-match signals flagging each payment. The cross-agency FEED only surfaces flags from the wave onset, so the daily flagged RATE ramps: pre-wave weeks ~5%, post-wave (last ~3w) ~30%+ (the spike). High-risk payments carry 2–4 signals; moderate carry 1; low carry 0. |
 | `raw_disposition_outcomes` | ~8,000 | 18-month case history: each historical case with (disposition_chosen, was_improper, recovery_amount) outcomes — the training data for the disposition model. Relationship: stacked signals → investigated → high recovery; weak signals → released → low improper-payment rate. |
 
@@ -73,7 +78,7 @@ Write the raw datasets as **parquet files into the UC Volume** `/Volumes/{catalo
 **Signal attachment logic (Spark generation):**
 - Each beneficiary is born with 0–N signal tags (deterministic per ID).
 - Each payment inherits the beneficiary's signals + gets random per-payment signal additions (low frequency).
-- Hero beneficiary (BEN-0000214) starts with 2 strong signals; hero payment (PAY-0000214) inherits + maybe 1 more.
+- The canonical live hero is PAY-0000202 with `cross_agency_fraud_flag` + `income_mismatch`; generated fixture identities may differ from earlier workshop seeds.
 - Everyday beneficiaries: 85% carry 0 signals, 12% carry 1, 3% carry 2+.
 - High-risk cohort (first ~200 beneficiaries by ID): 40% carry 2+ signals.
 
@@ -158,11 +163,11 @@ GROUP BY payment_id
 
 **`gold_disposition_recommendations`** — *the ranked disposition per open flagged payment* — **built by the pipeline with a hardcoded HEURISTIC** (no ML needed; ML is an optional swap, see `03-ml-disposition.md`). Each disposition has a **net recovery value = projected_recovery − citizen_delay_cost**, and `recommended_disposition = argmax`. On this data that argmax resolves to a signal-count rule (validated to give a realistic ~46% release / ~32% hold / ~21% refer split — never a single degenerate action):
 - **refer-to-investigation** — `n_signals ≥ 3` (stacked signals, at least one strong). `recovery_value = projected_recovery_if_investigated_usd` (full recovery path; investigation is warranted, delay cost irrelevant). ~21%.
-- **hold-for-verification** — `n_signals = 2`, OR a single **strong** signal (`duplicate_identity`/`deceased_payee`/`cross_agency_fraud_flag`). `recovery_value = projected_recovery_if_investigated_usd * 0.3 − citizen_delay_cost` (a chunk of held cases proceed to investigation; the ~$100/3-day delay cost accrues but is outweighed). ~32%. **The hero `PAY-0000214` lands here** (2 stacked strong signals → hold pending verification).
+- **hold-for-verification** — `n_signals = 2`, OR a single **strong** signal (`duplicate_identity`/`deceased_payee`/`cross_agency_fraud_flag`). `recovery_value = projected_recovery_if_investigated_usd * 0.3 − citizen_delay_cost` (a chunk of held cases proceed to investigation; the ~$100/3-day delay cost accrues but is outweighed). ~32%. **The live hero `PAY-0000202` lands here** (`cross_agency_fraud_flag` + `income_mismatch` → a 72-hour recommended hold).
 - **release** — a single **weak** signal only (`income_mismatch`/`benefit_overlap`/`employment_mismatch`/`residence_mismatch`/`manual_review_flag`). `recovery_value ≈ 0` (little projected recovery; the citizen-delay cost of holding a likely-legitimate payment dominates). ~46%.
 - `confidence_score = 0.95 if n_signals ≥ 2 AND has a strong signal, else 0.70 if n_signals == 1, else 0.40`.
 - *(Note: the queue is flagged-only — every row has n_signals ≥ 1 — so `release` is the disposition for the single-weak-signal cohort, not for unflagged payments. There are no 0-signal rows in `gold_open_queue`.)*
-- Rationale memo (the `reasoning` field): *"High-risk: multiple strong fraud signals + $1,850 → estimated $1,480 improper exposure, $962 projected recovery if investigated. Recommend hold-for-verification: verification (~$100 delay cost to beneficiary over 3 days) + investigation to confirm. If improper, ~$962 in taxpayer recovery justified."* — a template the app + dashboard can fill in.
+- Rationale memo (the `reasoning` field): *"PAY-0000202: cross-agency fraud flag + income mismatch on a $3,227.73 TANF payment in MN → ~$2,582.18 improper exposure. Recommend a 72-hour hold-for-verification; predicted recovery is about $1,678."* The examiner may approve a different bounded duration; the live decision is 48 hours.
 
 ### Consumer routing
 
@@ -179,8 +184,8 @@ GROUP BY payment_id
 Run before `03-ml-disposition.md`. Each row = a one-line query the LLM writes against the table; if it fails, fix the synth before publishing downstream resources.
 
 **Load-bearing (must pass — these gate the story):**
-- **The hero payment exists and is flagged** — `gold_open_queue WHERE payment_id='PAY-0000214'` → `n_signals ≥ 2`, `signal_list` contains both 'duplicate_identity' and 'cross_agency_fraud_flag', `risk_level='high'`, `improper_payment_exposure_usd > 1000`.
-- **Disposition recommendation for hero is sensible** — `gold_disposition_recommendations WHERE payment_id='PAY-0000214'` → `recommended_disposition IN ('hold_for_verification', 'refer_to_investigation')` with high confidence (≥0.85).
+- **The hero payment exists and is flagged** — `gold_open_queue WHERE payment_id='PAY-0000202'` → TANF, MN, amount 3227.73, `signal_list` contains both `cross_agency_fraud_flag` and `income_mismatch`, and exposure is approximately 2582.18.
+- **Disposition recommendation for hero is sensible** — `gold_disposition_recommendations WHERE payment_id='PAY-0000202'` → `recommended_disposition='hold_for_verification'`, recommended hold 72 hours, and predicted recovery about 1678.
 - **3-way disposition mix** — `gold_disposition_recommendations` GROUP BY `recommended_disposition`: a realistic split ≈ 35% release / 43% hold / 22% refer (proportions shift with the seed; the invariant is a genuine 3-way split, never ~100% one action). If all one disposition, the model can't learn ranking.
 - **Flagged-rate surge** — daily flagged rate WHERE `queue_date >= FRAUD_WAVE_ONSET` vs `< FRAUD_WAVE_ONSET`: post-wave ~30%+ of payments carry ≥1 signal; pre-wave ~5%. The spike must be evident on the trend chart.
 - **High-risk cohort stacked signals** — `gold_open_queue WHERE risk_level='high'` → median `n_signals ≥ 2`; ≥70% carry a 'strong' signal type.
