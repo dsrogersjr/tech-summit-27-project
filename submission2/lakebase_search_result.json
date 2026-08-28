@@ -1,0 +1,32 @@
+{
+  "query": "high-risk cross-agency fraud or duplicate identity on a large TANF payment",
+  "embedding_model": "databricks-gte-large-en (1024-dim)",
+  "index": "CREATE INDEX dispo_recs_reasoning_vec_idx ON app.dispo_recs USING hnsw (search_embedding vector_cosine_ops)",
+  "results": [
+    {
+      "payment_id": "PAY-0000202",
+      "reasoning": "High-risk: 2 fraud signal(s) on a $3,228 TANF payment → estimated $2,582 improper exposure, $1,678 projected recovery if investigated. Recommend hold-for-verification: verification (~$48 delay cost ov",
+      "score": "0.8582"
+    },
+    {
+      "payment_id": "PAY-0000677",
+      "reasoning": "Moderate-risk: 1 fraud signal(s) on a $3,342 TANF payment → estimated $501 improper exposure, $326 projected recovery if investigated. Recommend hold-for-verification: verification (~$50 delay cost ov",
+      "score": "0.8454"
+    },
+    {
+      "payment_id": "PAY-0000611",
+      "reasoning": "Moderate-risk: 1 fraud signal(s) on a $1,581 TANF payment → estimated $237 improper exposure, $154 projected recovery if investigated. Recommend hold-for-verification: verification (~$24 delay cost ov",
+      "score": "0.8435"
+    },
+    {
+      "payment_id": "PAY-0000589",
+      "reasoning": "Moderate-risk: 1 fraud signal(s) on a $2,049 TANF payment → estimated $307 improper exposure, $200 projected recovery if investigated. Recommend hold-for-verification: verification (~$31 delay cost ov",
+      "score": "0.8411"
+    },
+    {
+      "payment_id": "PAY-0000636",
+      "reasoning": "Moderate-risk: 1 fraud signal(s) on a $3,160 TANF payment → estimated $474 improper exposure, $308 projected recovery if investigated. Recommend hold-for-verification: verification (~$47 delay cost ov",
+      "score": "0.8394"
+    }
+  ]
+}

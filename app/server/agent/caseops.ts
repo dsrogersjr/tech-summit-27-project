@@ -20,6 +20,9 @@
  *   - `find_flag`         → Build 2 (Assist): read the live flag
  *   - `rank_dispositions` → Build 2 (Assist): read the ML recommendation
  *   - `execute_case_action`→ Build 3 (Act):   the human-in-the-loop write
+ *   - `search_cases`      → Lakebase Search: in-Lakebase pgvector semantic
+ *                           retrieval over dispo_recs.reasoning (not a
+ *                           separate store)
  *
  * The three-phase chain (Discover → Draft+confirm → Execute) is described in
  * the instructions below and now runs end to end: find_flag + rank_dispositions
@@ -52,6 +55,7 @@ import {
   getPayment,
   getRecommendation,
 } from '../db/queries/index.js';
+import { embedText } from './tools/embed.js';
 // The data-backend helpers. Both are config-driven and share the same
 // DataCallResult shape + ToolProgressEvent stream, so the `ask_data` tool
 // below can delegate to EITHER without the UI caring which powers it. This
@@ -356,11 +360,73 @@ function makeTools(ctx: AgentContext): Tool[] {
       ),
   });
 
-  // find_flag / rank_dispositions / execute_case_action are
-  // registered so the MODEL knows they exist (and the trainee sees them in
-  // the tool list) — they throw until implemented. ask_data is registered
-  // only when a backend is configured.
-  const tools: Tool[] = [findShortfall, rankRecoveryMoves, executeRecoveryAction];
+  // ── search_cases — Build 1 Lakebase Search (pgvector). IMPLEMENTED. ──────
+  // Semantic retrieval over app.dispo_recs.reasoning using the IN-LAKEBASE
+  // pgvector index (`dispo_recs_reasoning_vec_idx`, HNSW cosine). Retrieval
+  // happens in the operational store — NOT a separate search service. Embeds
+  // the query via databricks-gte-large-en, then ranks by cosine similarity.
+  const searchCases = tool({
+    name: 'search_cases',
+    description:
+      'Semantic search over the flagged-payment disposition reasoning using the Lakebase pgvector index (retrieval happens in Lakebase, not a separate store). Use to find flagged payments whose reasoning is similar to a described situation, e.g. "deceased payee with an income mismatch" or "single weak signal, likely legitimate".',
+    parameters: z.object({
+      query: z
+        .string()
+        .describe('A natural-language description of the kind of case to find.'),
+      limit: z
+        .number()
+        .int()
+        .nullable()
+        .describe('Max results to return (default 5, max 25).'),
+    }),
+    execute: async ({ query, limit }) =>
+      mlflow.withSpan(
+        async () => {
+          const k = limit && limit > 0 ? Math.min(limit, 25) : 5;
+          const vec = await embedText(ctx, query);
+          // vec is model-generated numbers (not user text); bind as a pgvector
+          // literal and cast — the search runs against the Lakebase index.
+          const lit = `[${vec.join(',')}]`;
+          const res = await ctx.db.execute(sql`
+            SELECT payment_id,
+                   LEFT(reasoning, 300) AS reasoning,
+                   1 - (search_embedding <=> ${lit}::vector) AS score
+            FROM app.dispo_recs
+            WHERE search_embedding IS NOT NULL
+            ORDER BY search_embedding <=> ${lit}::vector
+            LIMIT ${k}
+          `);
+          const rows = res.rows as Array<{
+            payment_id: string;
+            reasoning: string | null;
+            score: number | string | null;
+          }>;
+          return {
+            query,
+            results: rows.map((r) => ({
+              payment_id: r.payment_id,
+              reasoning: r.reasoning,
+              score: r.score === null ? null : Number(r.score),
+            })),
+          };
+        },
+        {
+          name: 'search_cases',
+          spanType: mlflow.SpanType.TOOL,
+          inputs: { query, limit },
+        },
+      ),
+  });
+
+  // find_flag / rank_dispositions / execute_case_action / search_cases read
+  // and act on Lakebase; ask_data (registered only when a Genie/MAS backend is
+  // configured) reads the governed lakehouse. All spanned by MLflow.
+  const tools: Tool[] = [
+    findShortfall,
+    rankRecoveryMoves,
+    executeRecoveryAction,
+    searchCases,
+  ];
   if (ctx.masEndpointName || ctx.genieSpaceId) {
     tools.unshift(askData);
   }
@@ -528,6 +594,11 @@ execute_case_action(payment_id, action_type, hold_duration_hours, drafted_reques
   (release / hold_for_verification / refer_to_investigation) to Lakebase
   app.case_actions with an audit entry, attributed to you. Use ONLY after the
   examiner has explicitly approved.
+
+search_cases(query, limit) — semantic search over the flagged-payment disposition
+  reasoning using the in-Lakebase pgvector index (retrieval happens IN Lakebase,
+  not a separate store). Use to pull up cases similar to a described situation
+  (e.g. "deceased payee with income mismatch"). Read-only.
 
 THERE ARE NO OTHER TOOLS.
 

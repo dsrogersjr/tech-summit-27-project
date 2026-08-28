@@ -30,6 +30,14 @@ commit `5fe7265`): `find_flag`, `rank_dispositions` (Assist) and
 | Reads across tools (execution) | `cross_tool_flow.jsonl` | One live threaded conversation: a real Genie `ask_data` call (governed-lakehouse analytics) **and** `find_flag`/`rank_dispositions` (Lakebase OLTP) — each `tool_call` tagged `genie` vs `lakebase-read`. `find_flag` surfaced PAY-0000202's recorded disposition. | ✅ live (Genie + Lakebase) |
 | Acts across tools | `writeback_table.json` / `assist_log.jsonl` | The `execute_case_action` Lakebase write recorded PAY-0000202's approved disposition; reflected on the next read (`view_result.json`). | ✅ live write |
 
+## Lakebase Search: retrieves from the in-Lakebase index, not a separate store
+
+| Evidence | File | How it's satisfied | Real/live |
+|---|---|---|---|
+| Build construct — in-Lakebase search | `lakebase_search_evidence.md` | `search_cases` agent tool + `embed.ts` (databricks-gte-large-en) + `search_embedding vector(1024)` on dispo_recs + `setup_lakebase_search.ts` (extension/column/embed/HNSW index). Retrieval is a pgvector query in Lakebase. | ✅ from source |
+| Retrieval query + index | `lakebase_search_query.sql` | The similarity query, the live HNSW index def, and EXPLAIN (default seq-scan at 43 rows; `Index Scan using dispo_recs_reasoning_vec_idx` with seqscan off). | ✅ live |
+| Retrieval result | `lakebase_search_result.json` | Real run: "cross-agency fraud / duplicate identity on a large TANF payment" → top hit PAY-0000202 (0.858) + relevant TANF cases; 43/43 rows embedded. | ✅ live |
+
 ## Notes
 - `assist_log.jsonl` is a real live run against the Databricks Responses API
   (`databricks-gpt-5-4`) — the two turns are the model's actual output, with the
