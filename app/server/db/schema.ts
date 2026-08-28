@@ -228,6 +228,41 @@ export const dispositionRecommendations = appSchema.table(
   (t) => [index('disposition_payment_idx').on(t.paymentId)],
 );
 
+// Curated federal benefits verification guidance used by `search_playbook`.
+// The setup script owns seed content and the HNSW index; Drizzle declares the
+// table so application code and generated migrations retain its full shape.
+export const referencePlaybooks = appSchema.table(
+  'reference_playbooks',
+  {
+    guideId: text('guide_id').primaryKey(),
+    title: text('title').notNull(),
+    agency: text('agency').notNull(),
+    program: text('program').notNull(),
+    scenario: text('scenario').notNull(),
+    summary: text('summary').notNull(),
+    verificationSteps: jsonb('verification_steps')
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    requiredDocuments: jsonb('required_documents')
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    holdGuidance: text('hold_guidance'),
+    authorityCitation: text('authority_citation').notNull(),
+    sourceUrl: text('source_url'),
+    content: text('content').notNull(),
+    searchEmbedding: vector1024('search_embedding'),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('reference_playbooks_program_idx').on(t.program),
+    index('reference_playbooks_agency_idx').on(t.agency),
+  ],
+);
+
 // ============================================================================
 // Writable operational table (the app writes here — Build-1 writable table)
 //

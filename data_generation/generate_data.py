@@ -10,7 +10,7 @@
 # MAGIC
 # MAGIC **The load-bearing anomaly** (one fraud-signal surge, two visible symptoms): a
 # MAGIC cross-agency fraud-match feed + eligibility-data refresh ~3 weeks ago surfaced a
-# MAGIC spike of high-risk pre-disbursement payments. The hero payment is `PAY-0000214`
+# MAGIC spike of high-risk pre-disbursement payments. The hero payment is `PAY-0000202`
 # MAGIC flagged by MULTIPLE strong signals (duplicate identity + cross-agency fraud flag)
 # MAGIC → recommended disposition = **hold-for-verification**. The pattern shows a realistic
 # MAGIC 3-way disposition mix: high-risk stacked-signal cases → hold/investigate; moderate
@@ -82,8 +82,10 @@ N_HIGH_RISK = 200                                  # high-risk stacked-signal ca
 N_MODERATE_RISK = 150                              # moderate single-signal cases → often release
 N_PROGRAMS = 5                                     # TANF, SNAP, Child Care, Disability, Veteran's
 
-HERO_PAYMENT = "PAY-0000214"                       # The demo's spotlight: high-risk, stacked signals
+HERO_INDEX = 202
+HERO_PAYMENT = f"PAY-{HERO_INDEX:07d}"             # The demo's spotlight: high-risk, stacked signals
 HERO_PROGRAM = "TANF"                              # Hero payment is a TANF benefit
+HERO_STATE = "MN"
 
 # Fraud + eligibility signal types. Each payment carries 0–N signals; stacked signals
 # → high risk. The hero carries multiple strong ones.
@@ -149,20 +151,20 @@ _STATES = ["CA", "TX", "FL", "NY", "PA", "IL", "OH", "GA", "NC", "MI",
 def _build_beneficiaries() -> list[tuple]:
     rng = np.random.default_rng(seed=7)
     out: list[tuple] = []
-    # The hero beneficiary (index 213 → BEN-0000214) carries multiple strong signals.
+    # The hero beneficiary carries multiple strong signals.
     # Everyday beneficiaries carry 0–1 signals; high-risk beneficiaries carry 2–3.
     for i in range(N_PAYMENTS_TOTAL):
         bid = f"BEN-{i:07d}"
-        # Hero beneficiary (index 213 → BEN-0000214) is pinned to the story program (TANF)
+        # Hero beneficiary is pinned to the story program and state
         # so the hero payment reads as a TANF benefit everywhere (README, specs, app).
-        program = HERO_PROGRAM if i == 213 else str(rng.choice(_PROGRAMS))
-        state = str(rng.choice(_STATES))
+        program = HERO_PROGRAM if i == HERO_INDEX else str(rng.choice(_PROGRAMS))
+        state = HERO_STATE if i == HERO_INDEX else str(rng.choice(_STATES))
         # Income (USD/month). High-risk: mismatch to what we have on file (the
         # income_mismatch signal), or legitimately low (disability). Everyday: in-band.
-        if i == 213:
+        if i == HERO_INDEX:
             # Hero: TANF, multiple red flags (see signal assignment below).
             income = 0.0  # unemployed (legitimate TANF)
-            signals = ["duplicate_identity", "cross_agency_fraud_flag"]  # stacked strong signals
+            signals = ["cross_agency_fraud_flag", "income_mismatch"]
         elif i < N_HIGH_RISK:
             # High-risk: stacked signals or strong single signal.
             income = rng.uniform(100, 5000)
@@ -190,7 +192,7 @@ _save(bens_df, "raw_beneficiaries")
 
 # Beneficiary signal lookup (driver-side; small).
 BEN_SIGNALS = {r[0]: set(r[4].split(" | ")) if r[4] else set() for r in bens_rows}
-BEN_HERO = bens_rows[213] if len(bens_rows) > 213 else bens_rows[0]
+BEN_HERO = bens_rows[HERO_INDEX] if len(bens_rows) > HERO_INDEX else bens_rows[0]
 
 # COMMAND ----------
 
@@ -258,10 +260,10 @@ def _build_payments() -> list[tuple]:
     claim_idx = 0
     for i in range(N_PAYMENTS_TOTAL):
         pid = f"PAY-{i:07d}"
-        if i == 214:  # Hero payment (1-indexed in display; 0-indexed here)
+        if i == HERO_INDEX:
             bid = BEN_HERO[0]
             cid = f"CLM-{rng.integers(0, min(100, len(claims_rows))):08d}"
-            amount_usd = 1850.0  # high amount + stacked fraud signals = hold-for-verification
+            amount_usd = 3227.73
         else:
             bid = f"BEN-{rng.integers(0, N_PAYMENTS_TOTAL):07d}"
             cid = f"CLM-{claim_idx % len(claims_rows):08d}"
@@ -269,7 +271,7 @@ def _build_payments() -> list[tuple]:
             amount_usd = float(rng.uniform(200, 3500))
         # Hero sits in the recent post-wave window (last ~5 days) so it keeps both
         # strong signals + shows in the current queue; others spread across ~8 weeks.
-        day_offset = int(rng.integers(0, 5)) if i == 214 else int(rng.integers(0, 56))
+        day_offset = int(rng.integers(0, 5)) if i == HERO_INDEX else int(rng.integers(0, 56))
         queue_date = (NOW - timedelta(days=day_offset)).date().isoformat()
         # Status: pre-disbursement (not yet paid).
         out.append((pid, bid, cid, amount_usd, queue_date, "pre_disbursement"))

@@ -1,20 +1,26 @@
 -- Sentinel — Silver layer. Reads raw parquet from the raw_data Volume via read_files().
+-- Signal labels come from the governed Delta lookup populated by the setup job.
 -- No bronze pass-through. See specifications/01-lakeflow.md.
 
 -- Dedup helper: signals attached at (payment, signal) grain → one row per payment.
 CREATE OR REFRESH MATERIALIZED VIEW payment_signal_summary AS
 SELECT
-  payment_id,
+  f.payment_id,
   COUNT(*) AS n_signals,
-  COLLECT_LIST(signal) AS signal_list,
+  COLLECT_LIST(f.signal) AS signal_list,
+  COLLECT_LIST(COALESCE(l.signal_category, 'unclassified')) AS signal_categories,
+  COLLECT_SET(COALESCE(l.signal_category, 'unclassified')) AS signal_category_set,
+  MIN(l.classification_confidence) AS ai_classification_min_confidence,
   ARRAY_AGG(CASE
-    WHEN signal IN ('duplicate_identity', 'deceased_payee', 'cross_agency_fraud_flag') THEN 'strong'
-    WHEN signal IN ('income_mismatch', 'benefit_overlap', 'employment_mismatch') THEN 'moderate'
+    WHEN f.signal IN ('duplicate_identity', 'deceased_payee', 'cross_agency_fraud_flag') THEN 'strong'
+    WHEN f.signal IN ('income_mismatch', 'benefit_overlap', 'employment_mismatch') THEN 'moderate'
     ELSE 'weak'
   END) AS signal_strengths,
-  MAX(CASE WHEN signal IN ('duplicate_identity', 'deceased_payee', 'cross_agency_fraud_flag') THEN 1 ELSE 0 END) AS has_strong_signal
-FROM read_files('/Volumes/${catalog}/${schema}/raw_data/payment_fraud_flags', format => 'parquet')
-GROUP BY payment_id;
+  MAX(CASE WHEN f.signal IN ('duplicate_identity', 'deceased_payee', 'cross_agency_fraud_flag') THEN 1 ELSE 0 END) AS has_strong_signal
+FROM read_files('/Volumes/${catalog}/${schema}/raw_data/payment_fraud_flags', format => 'parquet') f
+LEFT JOIN ${catalog}.${schema}.payment_signal_classification l
+  ON f.signal = l.signal
+GROUP BY f.payment_id;
 
 -- Per-payment current status, denormalized. Only flagged payments (n_signals >= 1) land here.
 CREATE OR REFRESH MATERIALIZED VIEW silver_payments_flagged
@@ -32,7 +38,12 @@ SELECT
   c.claim_type,
   s.n_signals,
   s.signal_list,
+  s.signal_categories,
+  s.signal_category_set,
+  s.ai_classification_min_confidence,
   s.signal_strengths,
+  -- Deterministic signal rules remain the risk authority. AI categories enrich
+  -- explanation and filtering only and are never used to raise/lower risk.
   CASE
     WHEN s.n_signals >= 2 AND s.has_strong_signal = 1 THEN 'high'
     WHEN s.n_signals >= 1 THEN 'moderate'

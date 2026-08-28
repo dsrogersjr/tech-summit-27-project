@@ -67,6 +67,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { parse as parseJsonc, type ParseError, printParseErrorCode } from 'jsonc-parser';
 import { z } from 'zod';
+import { sql, type SQL } from 'drizzle-orm';
 
 import * as mlflow from 'mlflow-tracing';
 
@@ -122,6 +123,7 @@ type AppConfig = {
   agentMlflowExperimentPath?: string;
   agentModel?: string;
   dashboardId: string;
+  workspaceUsageDashboardId?: string;
   /** Workspace resource ids/paths surfaced by /api/resources. Leave any
    * field empty to mark the corresponding tile inert (no deep-link).
    * The server composes URLs from these + DATABRICKS_HOST. */
@@ -182,6 +184,7 @@ const appConfigSchema = z
     agentMlflowExperimentPath: z.string().optional(),
     agentModel: z.string().optional(),
     dashboardId: z.string(),
+    workspaceUsageDashboardId: z.string().optional(),
     pipelineId: z.string().optional(),
     warehouseId: z.string().optional(),
     kaEndpointName: z.string().optional(),
@@ -506,6 +509,7 @@ await createApp({
       query: (sql, params) => appkit.analytics.query(sql, params),
       catalog: appConfig.data.catalog,
       schema: appConfig.data.schema,
+      workspaceId: process.env.DATABRICKS_WORKSPACE_ID ?? '',
       queriesDir: resolve(
         dirname(fileURLToPath(import.meta.url)),
         '../config/queries',
@@ -550,6 +554,66 @@ console.log(`[boot +${ms()}] Server listening — background init in progress…
 // onPluginsReady; the server is already listening by the time these run, and
 // DB-dependent /api routes block on `migrationsReady` via the gate above.
 // ============================================================================
+
+async function runOwnerDdl(label: string, statement: SQL): Promise<void> {
+  try {
+    await db.execute(statement);
+  } catch (error) {
+    // Some long-lived demo databases contain tables created by the deploying
+    // user rather than the current app SP. Search setup can still seed/use
+    // those tables, so owner-only index maintenance must not take the app down.
+    console.warn(
+      `[boot] Search DDL skipped (${label}): ${(error as Error).message}`,
+    );
+  }
+}
+
+async function ensureSearchSchema(): Promise<void> {
+  const columns = await db.execute(sql`
+    SELECT table_name, column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'app'
+      AND table_name IN ('reference_playbooks', 'dispo_recs')
+      AND column_name = 'search_embedding'
+  `);
+  const columnKeys = new Set(
+    columns.rows.map((row) => `${String(row.table_name)}.${String(row.column_name)}`),
+  );
+  if (!columnKeys.has('reference_playbooks.search_embedding')) {
+    await runOwnerDdl(
+      'reference_playbooks.search_embedding',
+      sql`ALTER TABLE app.reference_playbooks ADD COLUMN search_embedding vector(1024)`,
+    );
+  }
+  if (!columnKeys.has('dispo_recs.search_embedding')) {
+    await runOwnerDdl(
+      'dispo_recs.search_embedding',
+      sql`ALTER TABLE app.dispo_recs ADD COLUMN search_embedding vector(1024)`,
+    );
+  }
+
+  const indexes = await db.execute(sql`
+    SELECT indexname
+    FROM pg_indexes
+    WHERE schemaname = 'app'
+      AND tablename IN ('reference_playbooks', 'dispo_recs')
+  `);
+  const indexNames = new Set(indexes.rows.map((row) => String(row.indexname)));
+  if (!indexNames.has('reference_playbooks_embedding_hnsw_idx')) {
+    await runOwnerDdl(
+      'reference_playbooks_embedding_hnsw_idx',
+      sql`CREATE INDEX reference_playbooks_embedding_hnsw_idx
+          ON app.reference_playbooks USING hnsw (search_embedding vector_cosine_ops)`,
+    );
+  }
+  if (!indexNames.has('dispo_recs_reasoning_vec_idx')) {
+    await runOwnerDdl(
+      'dispo_recs_reasoning_vec_idx',
+      sql`CREATE INDEX dispo_recs_reasoning_vec_idx
+          ON app.dispo_recs USING hnsw (search_embedding vector_cosine_ops)`,
+    );
+  }
+}
 
 function startBackgroundInit() {
 // Resolve MLflow experiment ID (HTTP call) in parallel with DB init,
@@ -600,6 +664,7 @@ const mlflowIdPromise = (async () => {
 migrationsReady = (async () => {
   try {
     await runMigrations(db);
+    await ensureSearchSchema();
     console.log(`[boot +${ms()}] Migrations up to date`);
     if (appConfig.data) {
       await syncFromDelta(db, appConfig.data);

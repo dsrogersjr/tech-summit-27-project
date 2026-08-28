@@ -4,7 +4,7 @@
 #
 # Run order for a full deploy:
 #   1. databricks bundle deploy   --var ...     # app shell + setup job
-#   2. databricks bundle run luxebeauty_setup   # creates data/genie/ka/mas,
+#   2. databricks bundle run sentinel_setup     # creates data/genie,
 #                                                  ends with export_resources
 #                                                  exiting a resources JSON
 #   3. ./app/scripts/finalize_app.sh            # THIS — wires env + deploys app
@@ -18,7 +18,7 @@
 # Usage:
 #   ./app/scripts/finalize_app.sh [--profile <p>] [--job-id <id>] [--run-id <id>]
 # Defaults: profile from DATABRICKS_CONFIG_PROFILE; latest run of the
-# luxebeauty_setup job in the current bundle target.
+# sentinel_setup job in the current bundle target.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -46,9 +46,9 @@ cd "$BUNDLE_DIR"
 # ── 1. Resolve the setup job + its latest run ──────────────────────────────
 # Find the job by display name so we don't need the bundle's --var values
 # here. The name matches databricks.yml's job name with the dev-mode prefix.
-# ⚠️ When forking this template for a new demo, change "LuxeBeauty Setup" to
+# ⚠️ When forking this template for a new demo, change "Sentinel Setup" to
 #    match the renamed job name in databricks.yml (resources.jobs.<key>.name).
-SETUP_JOB_NAME_MATCH="LuxeBeauty Setup"
+SETUP_JOB_NAME_MATCH="Sentinel Setup"
 if [[ -z "$JOB_ID" ]]; then
     JOB_ID=$(databricks jobs list "${PROFILE_FLAG[@]}" -o json 2>/dev/null \
         | python3 -c "
@@ -59,7 +59,7 @@ hit = [j for j in jobs if '$SETUP_JOB_NAME_MATCH' in (j.get('settings',{}).get('
 print(hit[0]['job_id'] if hit else '')
 ")
 fi
-[[ -n "$JOB_ID" ]] || { echo "[finalize] ERROR: couldn't find the LuxeBeauty Setup job by name." >&2; exit 1; }
+[[ -n "$JOB_ID" ]] || { echo "[finalize] ERROR: couldn't find the Sentinel Setup job by name." >&2; exit 1; }
 echo "[finalize] setup job id: $JOB_ID"
 
 if [[ -z "$RUN_ID" ]]; then
@@ -71,7 +71,7 @@ runs = d if isinstance(d, list) else d.get('runs', [])
 print(runs[0]['run_id'] if runs else '')
 ")
 fi
-[[ -n "$RUN_ID" ]] || { echo "[finalize] ERROR: no run found for job $JOB_ID — run \`bundle run luxebeauty_setup\` first." >&2; exit 1; }
+[[ -n "$RUN_ID" ]] || { echo "[finalize] ERROR: no run found for job $JOB_ID — run \`bundle run sentinel_setup\` first." >&2; exit 1; }
 echo "[finalize] setup run id:  $RUN_ID"
 
 # ── 2. Find the export_resources task + read its exit JSON ─────────────────
@@ -118,7 +118,10 @@ env_lines = [
     ("DEMO_CATALOG", resources["catalog"]),
     ("DEMO_SCHEMA", resources["schema"]),
     ("DASHBOARD_ID", resources.get("dashboard_id", "")),
+    ("WORKSPACE_USAGE_DASHBOARD_ID", resources.get("workspace_usage_dashboard_id", "")),
     ("PIPELINE_ID", resources.get("pipeline_id", "")),
+    ("DATABRICKS_WORKSPACE_ID", resources.get("workspace_id", "")),
+    ("SUPERVISOR_EMAILS", resources.get("supervisor_emails", "")),
     ("AGENT_MLFLOW_EXPERIMENT_PATH", resources.get("agent_mlflow_experiment_path", "")),
     ("GENIE_SPACE_ID", resources.get("genie_space_id", "")),
     ("KA_ENDPOINT_NAME", resources.get("ka_endpoint_name", "")),

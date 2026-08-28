@@ -90,6 +90,7 @@ function useResource<T>(loader: () => Promise<T>): Resource<T> {
 type Me = {
   userName: string;
   userEmail: string | null;
+  role: 'examiner' | 'supervisor';
   workspaceUrl: string;
   workspaceId: string | null;
   isUserContext: boolean;
@@ -147,6 +148,7 @@ export type ResourceEntry = { id: string; url: string };
  *  the buildResources() table in server/routes/config.ts. */
 export type WorkspaceResources = {
   dashboard:     ResourceEntry;
+  workspaceUsage: ResourceEntry;
   genie:         ResourceEntry;
   pipeline:      ResourceEntry;
   warehouse:     ResourceEntry;

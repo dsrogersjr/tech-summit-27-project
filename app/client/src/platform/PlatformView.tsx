@@ -10,7 +10,7 @@
  *   1. Ingest + Transform — sources → declarative pipeline
  *      (also hosts a compact "Built with Genie Code" strip)
  *   2. Govern + Define     — Unity Catalog as the spine
- *   3. Speak to your data  — Dashboards + Genie + Agent Bricks
+ *   3. Speak to your data  — Sentinel + Genie + AI Gateway
  *   4. Act                 — Lakebase + Apps reaching the operator
  */
 
@@ -26,8 +26,6 @@ import {
   Workflow,
   Cable,
   BarChart3,
-  BookOpen,
-  Network,
   Cloud,
   Box,
   HardDrive,
@@ -424,28 +422,21 @@ function GovernScene() {
 }
 
 // ===========================================================================
-// Scene 3 — Speak to your data + Agent Bricks
-// One scene, four outputs sharing the same governed-data plinth at the bottom:
-//   • Dashboards  → BI for the eyes
-//   • Genie       → natural language → SQL
-//   • KA          → RAG over your docs
-//   • MAS         → orchestrates all three
-// Agent Bricks add value: bring your data, ground every answer, route across tools.
+// Scene 3 — Sentinel analytics + Genie + AI Gateway
+// Three deployed capabilities share the same governed payment-data foundation:
+//   • Sentinel analytics → see concentrated improper-payment risk
+//   • Genie              → investigate in natural language
+//   • AI Gateway         → govern model traffic
 // ===========================================================================
 
 function SpeakToDataScene() {
-  // 3 capability chips in a centered row, all fed by a single governed-data
-  // plinth below. Each chip is just an icon + label + a one-line value prop.
-  // Knowledge Assistant + Multi-Agent Supervisor are merged into a single
-  // "Agent Bricks" chip to keep the diagram simple.
-
   // 3 chips at width 112 + 14 gap, centered in the 380 viewBox.
   const chipW = 112;
   const chipH = 96;
   const chips = [
     {
-      label: 'AI/BI Dashboard',
-      sub: 'See the numbers',
+      label: 'Sentinel',
+      sub: 'See payment risk',
       icon: BarChart3,
       x: 8,
       y: 60,
@@ -458,9 +449,9 @@ function SpeakToDataScene() {
       y: 60,
     },
     {
-      label: 'Agent Bricks',
-      sub: 'Agents on your data',
-      icon: Network,
+      label: 'AI Gateway',
+      sub: 'Govern model traffic',
+      icon: ShieldCheck,
       x: 260,
       y: 60,
     },
@@ -499,7 +490,7 @@ function SpeakToDataScene() {
           fill="var(--primary)"
           letterSpacing="0.6"
         >
-          YOUR GOVERNED DATA + DOCS
+          GOVERNED SENTINEL PAYMENT DATA
         </text>
         <text
           x="190"
@@ -508,7 +499,7 @@ function SpeakToDataScene() {
           fontSize="8.5"
           fill="var(--muted-foreground)"
         >
-          Delta · Metric Views · UC Volumes
+          Delta · Unity Catalog · system tables
         </text>
       </g>
 
@@ -672,10 +663,10 @@ function ActScene() {
             Live
           </text>
           {[
-            'Refund processed · $52',
-            'Coupon sent · CUST-…',
-            'Audit logged',
-            'Refund processed · $68',
+            'Payment held · $4,280',
+            'Case assigned · IPP-…',
+            'Evidence logged',
+            'Review completed',
           ].map((t, i) => (
             <g key={i} transform={`translate(10 ${28 + i * 12})`}>
               <circle r="2" cx="2" cy="-2" fill="var(--primary)" opacity={1 - i * 0.2} />
@@ -974,7 +965,7 @@ function LayerBand({ layer, index }: { layer: Layer; index: number }) {
         </div>
       </div>
       {layer.id === 'ingest-transform' && <GenieCodeStrip />}
-      {layer.id === 'speak-to-data' && <AgenticAppsStrip />}
+      {layer.id === 'speak-to-data' && <SentinelAiFlowStrip />}
     </section>
   );
 }
@@ -1006,7 +997,7 @@ function GenieCodeStrip() {
           <span className="dx-genie-prompt-chev">$</span>
           <span className="dx-genie-prompt-text">
             <span className="dx-genie-prompt-typed">
-              ingest turbine telemetry into a daily pipeline
+              ingest payment eligibility feeds into a daily pipeline
             </span>
             <span className="dx-genie-prompt-caret" />
           </span>
@@ -1049,13 +1040,12 @@ function GenieCodeStrip() {
 }
 
 // ===========================================================================
-// Agentic Apps strip — sits inside the Speak-to-data layer.
-// Same visual language as the Genie Code strip: head label + animated demo
-// on the right. The demo here is a user question → specialist agents →
-// grounded answer with sources, conveying KA + MAS in one beat.
+// Sentinel AI flow — sits inside the Speak-to-data layer.
+// It shows only capabilities used by this solution: Sentinel risk signals,
+// governed Genie investigation, and model traffic through AI Gateway.
 // ===========================================================================
 
-function AgenticAppsStrip() {
+function SentinelAiFlowStrip() {
   return (
     <div className="dx-genie-strip">
       <div className="dx-genie-strip-head">
@@ -1063,56 +1053,52 @@ function AgenticAppsStrip() {
           <Sparkles className="size-3.5" />
         </span>
         <span className="dx-genie-strip-label">
-          <strong>Enable agentic apps</strong>
+          <strong>Investigate with governed AI</strong>
           <span className="dx-genie-strip-sub">
-            Turn your docs into experts. Route questions to the right specialist agent.
+            Sentinel signals ground Genie analysis while AI Gateway governs model traffic.
           </span>
         </span>
       </div>
 
-      {/* MAS routing flow:
-          question → supervisor fans out to specialists (Genie, KA, custom tool)
-          → answers stream back → grounded synthesis. */}
+      {/* Sentinel flow: question → AI Gateway → governed investigation steps. */}
       <div className="dx-mas-stage" aria-hidden>
-        {/* User question — types itself, then routing fires */}
         <div className="dx-mas-question">
           <span className="dx-mas-question-chev">?</span>
           <span className="dx-mas-question-text">
-            <span className="dx-mas-question-typed">Why are refunds up?</span>
+            <span className="dx-mas-question-typed">Which payments need review?</span>
             <span className="dx-mas-question-caret" />
           </span>
         </div>
 
-        {/* Supervisor router */}
         <div className="dx-mas-router">
           <span className="dx-mas-router-icon">
-            <Network className="size-3.5" />
+            <ShieldCheck className="size-3.5" />
           </span>
-          <span className="dx-mas-router-label">Supervisor</span>
+          <span className="dx-mas-router-label">AI Gateway</span>
         </div>
 
-        {/* Three specialist agents, lit sequentially */}
+        {/* Deployed investigation stages, lit sequentially. */}
         <div className="dx-mas-agents">
           <div className="dx-mas-agent dx-mas-agent-1">
             <span className="dx-mas-agent-icon">
-              <BarChart3 className="size-3" />
+              <ShieldCheck className="size-3" />
             </span>
-            <span className="dx-mas-agent-name">Genie</span>
-            <span className="dx-mas-agent-task">querying sales data…</span>
+            <span className="dx-mas-agent-name">Sentinel</span>
+            <span className="dx-mas-agent-task">scoring payment risk…</span>
           </div>
           <div className="dx-mas-agent dx-mas-agent-2">
             <span className="dx-mas-agent-icon">
-              <BookOpen className="size-3" />
+              <Sparkles className="size-3" />
             </span>
-            <span className="dx-mas-agent-name">Knowledge Assistant</span>
-            <span className="dx-mas-agent-task">searching refund policy…</span>
+            <span className="dx-mas-agent-name">Genie</span>
+            <span className="dx-mas-agent-task">querying governed data…</span>
           </div>
           <div className="dx-mas-agent dx-mas-agent-3">
             <span className="dx-mas-agent-icon">
-              <Box className="size-3" />
+              <BarChart3 className="size-3" />
             </span>
-            <span className="dx-mas-agent-name">Entity extraction</span>
-            <span className="dx-mas-agent-task">parsing customer claims…</span>
+            <span className="dx-mas-agent-name">Case evidence</span>
+            <span className="dx-mas-agent-task">summarizing risk signals…</span>
           </div>
         </div>
 

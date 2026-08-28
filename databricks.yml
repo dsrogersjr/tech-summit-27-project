@@ -5,7 +5,8 @@
 #   AI/BI dashboard + the Payment Integrity App shell, created by `bundle deploy`;
 #   then a setup job fills them
 #   in on `bundle run`:
-#     generate_data → run_pipeline → deploy_metric_view + deploy_genie
+#     generate_data → classify_payment_signals → run_pipeline
+#     → deploy_metric_view + deploy_genie
 #     → grant_app_uc → export_resources (exits a JSON manifest of every ID).
 #
 # This demo's disposition recommendation is a PIPELINE HEURISTIC (built in the
@@ -45,6 +46,9 @@ variables:
   app_name:
     description: "Workspace app name (must be unique per workspace)"
     default: "dbgen-sentinel-ipp"
+  supervisor_emails:
+    description: "Comma-separated app users authorized to execute case actions"
+    default: "doug.rogers@databricks.com"
   lakebase_project_id:
     description: "Lakebase project — reused if it already exists"
     default: "sentenel-tech-summit-27"
@@ -299,7 +303,7 @@ resources:
   jobs:
     sentinel_setup:
       name: "[${bundle.target}] Sentinel Setup"
-      description: "data → pipeline → metric view + genie → grant app SP → export IDs"
+      description: "data → AI signal lookup → pipeline → metric view + genie → grant app SP → export IDs"
       tasks:
         - task_key: generate_data
           notebook_task:
@@ -309,8 +313,21 @@ resources:
               schema:  ${resources.schemas.demo_schema.name}
           environment_key: sdk_default
 
-        - task_key: run_pipeline
+        # ai_classify cannot run inside SDP materialized-view definitions. This
+        # batch task classifies distinct raw parquet signals into a governed
+        # Delta lookup that Silver joins for explanatory categories. The
+        # deterministic Silver risk rules remain authoritative.
+        - task_key: classify_payment_signals
           depends_on: [{ task_key: generate_data }]
+          notebook_task:
+            notebook_path: ./src/setup/classify_payment_signals.py
+            base_parameters:
+              catalog: ${resources.schemas.demo_schema.catalog_name}
+              schema:  ${resources.schemas.demo_schema.name}
+          environment_key: sdk_default
+
+        - task_key: run_pipeline
+          depends_on: [{ task_key: classify_payment_signals }]
           pipeline_task:
             pipeline_id: ${resources.pipelines.sentinel_pipeline.id}
 
@@ -363,8 +380,10 @@ resources:
               catalog:        ${resources.schemas.demo_schema.catalog_name}
               schema:         ${resources.schemas.demo_schema.name}
               dashboard_id:   ${resources.dashboards.sentinel_dashboard.id}
+              workspace_usage_dashboard_id: ${resources.dashboards.sentinel_workspace_usage.id}
               pipeline_id:    ${resources.pipelines.sentinel_pipeline.id}
               warehouse_id:   ${resources.sql_warehouses.sentinel_warehouse.id}
+              supervisor_emails: ${var.supervisor_emails}
               genie_space_id: "{{tasks.deploy_genie.values.genie_space_id}}"
           environment_key: sdk_latest
 

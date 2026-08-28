@@ -28,7 +28,9 @@ Sorted by improper_payment_exposure_usd DESC (worst first). Columns:
 - **Recommended disposition** (text: release / hold-for-verification / refer-to-investigation)
 - **Status** (pre-disbursement / held / released / investigating / resolved — synced from case_actions)
 
-**Hero payment `PAY-0000214` is always in the top 3 rows** (high improper exposure + high recommended recovery).
+**Hero payment `PAY-0000202` is near the top of the queue**: TANF, MN,
+$3,227.73, `cross_agency_fraud_flag` + `income_mismatch`, ~$2,582.18
+improper-payment exposure, and about $1,678 predicted recovery.
 
 ### Detail drawer (right-side slide-over, opens on row click)
 Full payment context + ranked disposition options + approval/override UI:
@@ -105,7 +107,7 @@ Indexes: payment_id (for the drawer's activity timeline), created_at DESC (for t
 
 ## Validation
 
-- **Hero payment visible** — `PAY-0000214` in top 3 rows (high improper exposure).
+- **Hero payment visible** — `PAY-0000202` near the top (high improper exposure), with a heuristic recommendation to hold for 72 hours and a recorded examiner-approved 48-hour hold.
 - **KPI cards match dashboard** — Improper-payment exposure $ + flagged count should match the dashboard tile when filtered the same way.
 - **Ranked dispositions make sense** — For a high-risk case, hold/investigate should be ranked above release in the drawer. For a low-risk case, release should be ranked above investigate.
 - **Live cascade works** — Approve an action → the drawer closes, the queue table updates (row status changes, KPI cards tick), no reload needed.

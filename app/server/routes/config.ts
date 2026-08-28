@@ -13,6 +13,7 @@ type Deps = {
   appConfig: {
     mlflowExperimentId?: string;
     dashboardId: string;
+    workspaceUsageDashboardId?: string;
     /** Optional workspace resource ids exposed by /api/resources. */
     pipelineId?: string;
     warehouseId?: string;
@@ -72,6 +73,14 @@ function buildResources(
     dashboard: {
       id: cfg.dashboardId ?? '',
       url: composeUrl(host, '/dashboardsv3/', cfg.dashboardId),
+    },
+    workspaceUsage: {
+      id: cfg.workspaceUsageDashboardId ?? '',
+      url: composeUrl(
+        host,
+        '/dashboardsv3/',
+        cfg.workspaceUsageDashboardId,
+      ),
     },
     genie: {
       id: cfg.genieSpaceId ?? '',

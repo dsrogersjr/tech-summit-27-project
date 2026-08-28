@@ -22,8 +22,14 @@
  * charts.ts's QUERY_FILES map, and reference it here via <ChartData chartKey=…>.
  */
 import { useEffect, useState } from 'react';
-import { BarChart, LineChart } from '@databricks/appkit-ui/react';
-import { fetchWarehouse, type Warehouse } from '@/lib/api';
+import { BarChart, LineChart, Skeleton } from '@databricks/appkit-ui/react';
+import { ExternalLink, ShieldCheck } from 'lucide-react';
+import {
+  fetchResources,
+  fetchWarehouse,
+  type Warehouse,
+  type WorkspaceResources,
+} from '@/lib/api';
 import { BRAND_PALETTE } from '@/lib/brand';
 import { RtPitch } from '@/architecture/RtPitch';
 
@@ -101,6 +107,8 @@ export function AnalyticsView() {
           latencyMs={null}
         />
 
+        <GovernanceSpendPanel />
+
         {/* Top row: two charts side-by-side. Trend (wider) + zone mix. */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <ChartCard
@@ -150,6 +158,169 @@ export function AnalyticsView() {
         </ChartCard>
       </div>
     </div>
+  );
+}
+
+type GovernanceSpendRow = {
+  product: 'MODEL_SERVING' | 'AI_GATEWAY' | 'APPS' | 'GENIE';
+  reporting_start: string;
+  reporting_end: string;
+  list_price_cost_usd: number;
+  total_list_price_cost_usd: number;
+  usage_records: number;
+  unpriced_records: number;
+};
+
+const PRODUCT_LABELS: Record<GovernanceSpendRow['product'], string> = {
+  MODEL_SERVING: 'Model Serving',
+  AI_GATEWAY: 'AI Gateway',
+  APPS: 'Databricks Apps',
+  GENIE: 'Genie',
+};
+
+function formatUsd(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: value < 100 ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatDate(value: string | undefined): string {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${value}T00:00:00Z`));
+}
+
+function GovernanceSpendPanel() {
+  const { data, error, isLoading } =
+    useChartData<GovernanceSpendRow>('ai_governance_spend');
+  const [resources, setResources] = useState<WorkspaceResources | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchResources()
+      .then((value) => {
+        if (alive) setResources(value);
+      })
+      .catch((e) => console.error('[analytics] /api/resources failed', e));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const rows = data ?? [];
+  const total = Number(rows[0]?.total_list_price_cost_usd ?? 0);
+  const maxProductCost = Math.max(
+    ...rows.map((row) => Number(row.list_price_cost_usd)),
+    0,
+  );
+  const unpricedRecords = rows.reduce(
+    (sum, row) => sum + Number(row.unpriced_records),
+    0,
+  );
+  const resourceLink = resources?.workspaceUsage.url
+    ? {
+        label: 'Open workspace usage dashboard',
+        url: resources.workspaceUsage.url,
+      }
+    : resources?.gateway.url
+      ? { label: 'Open AI Gateway', url: resources.gateway.url }
+      : null;
+
+  return (
+    <section
+      className="rounded-xl border border-border bg-card overflow-hidden"
+      aria-labelledby="ai-governance-spend-title"
+    >
+      <div className="px-5 sm:px-6 py-4 border-b border-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="size-4 text-primary" aria-hidden />
+            <h2 id="ai-governance-spend-title" className="font-semibold text-sm">
+              AI governance &amp; spend
+            </h2>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Current workspace · USD list price · billing system tables
+          </p>
+        </div>
+        {resourceLink && (
+          <a
+            href={resourceLink.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            {resourceLink.label}
+            <ExternalLink className="size-3" aria-hidden />
+          </a>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="px-5 sm:px-6 py-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Skeleton className="h-16 rounded-lg" />
+          <Skeleton className="h-16 rounded-lg sm:col-span-2" />
+        </div>
+      ) : error ? (
+        <div className="m-5 sm:m-6 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          Could not load current-workspace AI usage: {error}
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="px-6 py-8 text-center text-sm text-muted-foreground">
+          No AI billing usage was reported for the recent window.
+        </div>
+      ) : (
+        <div className="px-5 sm:px-6 py-5 grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-5 lg:gap-8">
+          <div>
+            <div className="text-xs text-muted-foreground">Total estimated cost</div>
+            <div className="text-3xl font-semibold tracking-tight mt-1">
+              {formatUsd(total)}
+            </div>
+            <div className="text-xs text-muted-foreground mt-2">
+              {formatDate(rows[0]?.reporting_start)} –{' '}
+              {formatDate(rows[0]?.reporting_end)}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {rows.map((row) => {
+              const cost = Number(row.list_price_cost_usd);
+              const width =
+                maxProductCost > 0 ? Math.max((cost / maxProductCost) * 100, 1) : 0;
+              return (
+                <div key={row.product} className="grid grid-cols-[120px_1fr_auto] gap-3 items-center">
+                  <div className="text-xs font-medium">{PRODUCT_LABELS[row.product]}</div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${width}%` }}
+                    />
+                  </div>
+                  <div className="text-xs font-mono tabular-nums text-right min-w-20">
+                    {formatUsd(cost)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="px-5 sm:px-6 py-3 border-t border-border bg-muted/30 text-[11px] leading-relaxed text-muted-foreground">
+        List-price estimate before negotiated discounts. Billing records identify the
+        workspace and product, but do not reliably attribute cost to an individual
+        user, prompt, case, or AI response.
+        {unpricedRecords > 0 &&
+          ` ${unpricedRecords.toLocaleString()} usage record${unpricedRecords === 1 ? '' : 's'} had no matching USD list price and are excluded from cost.`}
+      </div>
+    </section>
   );
 }
 
