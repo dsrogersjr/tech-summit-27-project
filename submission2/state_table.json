@@ -1,210 +1,138 @@
 [
   {
-    "ts": "2026-08-27T20:28:08.715Z",
+    "event_ts": "2026-08-27T20:28:08.715Z",
     "event_kind": "message",
     "actor": "user",
-    "conversation_id": "0e43ee92-090e-4f08-bd79-1c60e447729d",
-    "position": 0,
-    "detail": "What fraud signals triggered the flags on Payment PAY-0000214, and what are my disposition options?",
-    "observability_events": null,
     "payment_id": null,
-    "decision": null,
-    "approved_by": null
+    "detail": {
+      "role": "user",
+      "tools": null,
+      "position": 0,
+      "trace_id": null,
+      "conversation": "Assistant"
+    }
   },
   {
-    "ts": "2026-08-27T20:28:17.880Z",
-    "event_kind": "message",
+    "event_ts": "2026-08-27T20:28:17.880Z",
+    "event_kind": "tool_call",
     "actor": "assistant",
-    "conversation_id": "0e43ee92-090e-4f08-bd79-1c60e447729d",
-    "position": 1,
-    "detail": "I can\u0019t verify the live signals or ranked disposition options right now because both reads failed.\n\n- **PAY-0000214 live flag read:** tool error \u0014 `Not implemented`\n- **Disposition ranking read:** tool error \u0014 `Not implemented`\n\nSo I should not guess at:\n- the exact fraud signals currently attached to PAY-0000214, or\n- the recommended disposition ranking among **release / hold_for_verification / r",
-    "observability_events": [
-      {
-        "kind": "intermediate_message",
-        "name": null
-      },
-      {
-        "kind": "intermediate_message",
-        "name": null
-      },
-      {
-        "kind": "tool_call",
-        "name": "find_flag"
-      },
-      {
-        "kind": "tool_call",
-        "name": "rank_dispositions"
-      },
-      {
-        "kind": "tool_output",
-        "name": null
-      },
-      {
-        "kind": "tool_output",
-        "name": null
-      },
-      {
-        "kind": "intermediate_message",
-        "name": null
-      }
-    ],
     "payment_id": null,
-    "decision": null,
-    "approved_by": null
+    "detail": {
+      "role": "assistant",
+      "tools": [
+        "find_flag",
+        "rank_dispositions"
+      ],
+      "position": 1,
+      "trace_id": "no-op-span-trace-id",
+      "conversation": "Assistant"
+    }
   },
   {
-    "ts": "2026-08-27T20:41:50.243Z",
+    "event_ts": "2026-08-27T20:41:50.243Z",
     "event_kind": "message",
     "actor": "user",
-    "conversation_id": "0e43ee92-090e-4f08-bd79-1c60e447729d",
-    "position": 2,
-    "detail": "What organizations had the most instances of fraud?",
-    "observability_events": null,
     "payment_id": null,
-    "decision": null,
-    "approved_by": null
+    "detail": {
+      "role": "user",
+      "tools": null,
+      "position": 2,
+      "trace_id": null,
+      "conversation": "Assistant"
+    }
   },
   {
-    "ts": "2026-08-27T20:42:01.541Z",
-    "event_kind": "message",
+    "event_ts": "2026-08-27T20:42:01.541Z",
+    "event_kind": "tool_call",
     "actor": "assistant",
-    "conversation_id": "0e43ee92-090e-4f08-bd79-1c60e447729d",
-    "position": 3,
-    "detail": "I can\u0019t rank **organizations** from the available data because there isn\u0019t an organization field in this schema.\n\nClosest dimensions I *can* use are:\n- **program**\n- **state**\n- **beneficiary**\n- **payment**\n\nIf you want the fastest useful cut, ask one of these:\n- **Which programs had the most fraud flags?**\n- **Which states had the most fraud flags?**",
-    "observability_events": [
-      {
-        "kind": "intermediate_message",
-        "name": null
-      },
-      {
-        "kind": "tool_call",
-        "name": "ask_data"
-      },
-      {
-        "kind": "intermediate_message",
-        "name": null
-      },
-      {
-        "kind": "tool_output",
-        "name": null
-      }
-    ],
     "payment_id": null,
-    "decision": null,
-    "approved_by": null
+    "detail": {
+      "role": "assistant",
+      "tools": [
+        "ask_data"
+      ],
+      "position": 3,
+      "trace_id": "no-op-span-trace-id",
+      "conversation": "Assistant"
+    }
   },
   {
-    "ts": "2026-08-27T20:42:14.761Z",
+    "event_ts": "2026-08-27T20:42:14.761Z",
     "event_kind": "message",
     "actor": "user",
-    "conversation_id": "0e43ee92-090e-4f08-bd79-1c60e447729d",
-    "position": 4,
-    "detail": "Ok, which programs?",
-    "observability_events": null,
     "payment_id": null,
-    "decision": null,
-    "approved_by": null
+    "detail": {
+      "role": "user",
+      "tools": null,
+      "position": 4,
+      "trace_id": null,
+      "conversation": "Assistant"
+    }
   },
   {
-    "ts": "2026-08-27T20:42:29.528Z",
-    "event_kind": "message",
+    "event_ts": "2026-08-27T20:42:29.528Z",
+    "event_kind": "tool_call",
     "actor": "assistant",
-    "conversation_id": "0e43ee92-090e-4f08-bd79-1c60e447729d",
-    "position": 5,
-    "detail": "**Veteran's leads with 13 fraud-flagged payments.** Focus next on **TANF (11)** and **SNAP (8)**.\n\nFull ranking:\n- **Veteran's:** 13\n- **TANF:** 11\n- **SNAP:** 8\n- **Child Care:** 6\n- **Disability:** 5\n\nThe biggest fraud concentration is in **Veteran's** and **TANF**. If you want, I can next break this down by **signal type** or pull the **highest-risk payment** in one of those programs.",
-    "observability_events": [
-      {
-        "kind": "tool_call",
-        "name": "ask_data"
-      },
-      {
-        "kind": "intermediate_message",
-        "name": null
-      },
-      {
-        "kind": "tool_output",
-        "name": null
-      }
-    ],
     "payment_id": null,
-    "decision": null,
-    "approved_by": null
+    "detail": {
+      "role": "assistant",
+      "tools": [
+        "ask_data"
+      ],
+      "position": 5,
+      "trace_id": "no-op-span-trace-id",
+      "conversation": "Assistant"
+    }
   },
   {
-    "ts": "2026-08-27T21:25:42.906Z",
+    "event_ts": "2026-08-27T21:25:42.906Z",
     "event_kind": "message",
     "actor": "user",
-    "conversation_id": "0e43ee92-090e-4f08-bd79-1c60e447729d",
-    "position": 6,
-    "detail": "Payment PAY-0000214 is flagged with high-risk signals. Investigate the fraud flags, rank the recommended dispositions (hold for verification vs release vs refer to investigation), draft the case action, and wait for my approval before recording it.",
-    "observability_events": null,
     "payment_id": null,
-    "decision": null,
-    "approved_by": null
+    "detail": {
+      "role": "user",
+      "tools": null,
+      "position": 6,
+      "trace_id": null,
+      "conversation": "Assistant"
+    }
   },
   {
-    "ts": "2026-08-27T21:26:21.785Z",
-    "event_kind": "message",
+    "event_ts": "2026-08-27T21:26:21.785Z",
+    "event_kind": "tool_call",
     "actor": "assistant",
-    "conversation_id": "0e43ee92-090e-4f08-bd79-1c60e447729d",
-    "position": 7,
-    "detail": "**I can\u0019t disposition PAY-0000214 yet.** The live case reads failed, so my recommendation is: **do not record any action until the case is visible and the ranking loads.**\n\nWhat I found:\n- **Investigation read:** no available data for **PAY-0000214** in the current queue\n- **Live flag read:** tool error \u0014 `Not implemented`\n- **Disposition ranking:** tool error \u0014 `Not implemented`\n\nSo I cannot reli",
-    "observability_events": [
-      {
-        "kind": "intermediate_message",
-        "name": null
-      },
-      {
-        "kind": "tool_call",
-        "name": "ask_data"
-      },
-      {
-        "kind": "tool_call",
-        "name": "find_flag"
-      },
-      {
-        "kind": "tool_call",
-        "name": "rank_dispositions"
-      },
-      {
-        "kind": "intermediate_message",
-        "name": null
-      },
-      {
-        "kind": "tool_output",
-        "name": null
-      },
-      {
-        "kind": "tool_output",
-        "name": null
-      },
-      {
-        "kind": "tool_output",
-        "name": null
-      }
-    ],
     "payment_id": null,
-    "decision": null,
-    "approved_by": null
+    "detail": {
+      "role": "assistant",
+      "tools": [
+        "ask_data",
+        "find_flag",
+        "rank_dispositions"
+      ],
+      "position": 7,
+      "trace_id": "no-op-span-trace-id",
+      "conversation": "Assistant"
+    }
   },
   {
-    "ts": "2026-08-28T14:25:26.336Z",
+    "event_ts": "2026-08-28T14:25:26.336Z",
     "event_kind": "decision",
     "actor": "doug.rogers@databricks.com",
-    "conversation_id": null,
-    "position": null,
-    "detail": "Hold PAY-0000202 48h for identity verification. Two strong signals (cross_agency_fraud_flag, income_mismatch) on a high-exposure TANF payment; confirm identity and the cross-agency match before disbursement.",
-    "observability_events": [
-      {
-        "at": "2026-08-28T14:25:26.344Z",
-        "by": "doug.rogers@databricks.com",
-        "tool": "execute_case_action",
-        "notes": "Examiner-approved hold_for_verification — hold 48h.",
-        "action": "approved"
-      }
-    ],
     "payment_id": "PAY-0000202",
-    "decision": "hold_for_verification",
-    "approved_by": "doug.rogers@databricks.com"
+    "detail": {
+      "status": "approved",
+      "action_type": "hold_for_verification",
+      "audit_trail": [
+        {
+          "at": "2026-08-28T14:25:26.344Z",
+          "by": "doug.rogers@databricks.com",
+          "tool": "execute_case_action",
+          "notes": "Examiner-approved hold_for_verification — hold 48h.",
+          "action": "approved"
+        }
+      ],
+      "hold_duration_hours": 48,
+      "predicted_recovery_usd": 1678.42
+    }
   }
 ]

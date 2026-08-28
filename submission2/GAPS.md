@@ -1,71 +1,64 @@
-# Submission 2 — gaps and implementation plan
+# Submission 2 — gaps: resolved
 
-Honest list of what is not fully backed by real data yet, with a concrete plan
-for each.
+All four gaps from the first submission2 pass have been addressed on branch
+`feat/act-closed-loop-case-action`. Kept for provenance.
 
-## (a) `dispo_recs.action_ranking` is empty — the ranked what-if has no per-option backing
+## (a) `dispo_recs.action_ranking` was empty — RESOLVED
 
-**Observed:** all 43 rows of `app.dispo_recs` have `action_ranking = []`
-(0 populated). The scalar fields ARE present and real
-(`recommended_disposition`, `recommended_hold_hours`, `predicted_recovery_usd`,
-`predicted_cost_usd`, `reasoning`), so `rank_dispositions` returns a real
-recommendation and the what-if is computed from the scalars (release ⇒ forgo
-$1,678 recovery + accept $2,582 exposure vs. ~$48 hold cost). But the *per-option
-ranking* (release / hold / refer, each with cost + predicted recovery + net) that
-the UI's ranked-options list and the richest what-if expect is not materialized.
+**Was:** all 43 rows of `app.dispo_recs` had `action_ranking = []`; the ranked
+what-if had no per-option backing.
 
-**Plan:**
-1. Run the ML/heuristic disposition step (`specifications/03-ml-disposition` /
-   the gold `gold_disposition_recommendations` builder) so it emits the full
-   `action_ranking` array per payment, not just the scalar recommendation.
-2. Re-sync `dispo_recs` (the Gold→Lakebase snapshot) so the populated ranking
-   lands in `app.dispo_recs`.
-3. Re-capture `rank_dispositions` output for PAY-0000202 with a non-empty ranking
-   and refresh `drafted_sample.md` / `assist_log.jsonl` to quote all three options.
+**Fix:** `app/server/db/sync.ts` now builds the 3-option `action_ranking`
+(release / hold_for_verification / refer_to_investigation) deterministically from
+the Gold heuristic's economics — projected recovery, the Gold citizen-delay cost,
+and improper exposure — instead of hardcoding `[]` (commit `3245bfe`). The
+disposition read was extended with `improper_payment_exposure_usd`. Re-syncing
+`dispo_recs` (truncate + `syncFromDelta`, the legitimate Delta→Lakebase path —
+`case_actions` is never touched) repopulated all **43/43** rows with a ranking.
 
-## (b) No dedicated workflow-state / observability table
+**Honest note:** the ranking's net values are *advisory economics*. For a
+2-signal case like PAY-0000202 the net-value argmax is `refer_to_investigation`
+($2,420.78, recovering the full exposure), but the rule-based
+`recommended_disposition` stays `hold_for_verification` — the signal-strength
+policy prefers the least-intrusive disposition that still stops disbursement.
+The recommendation, not the net-value argmax, is the authority.
 
-**Observed:** the app has no purpose-built state/observability table. `state_table.json`
-is assembled from `app.messages` (conversation turns + tool-call/tool-output
-entries in the `thinking` JSONB) and `app.case_actions` (recorded decisions +
-`audit_trail`). Agent observability is actually emitted to **MLflow traces**
-(the agent wraps every tool in `mlflow.withSpan`), which live in an MLflow
-experiment, not a Lakebase table.
+## (b) No dedicated workflow-state / observability object — RESOLVED
 
-**Plan (pick one):**
-1. *Formalize the view:* add a SQL view `app.workflow_state` that UNIONs message
-   turns + case-action decisions (the exact query used to build `state_table.json`),
-   so the observability timeline is a first-class, queryable object.
-2. *Or add a real table:* have the chat-stream write a compact `app.agent_events`
-   row per trigger/tool-call/decision (event_type, payment_id, tool, ts, trace_id),
-   giving a dedicated Lakebase observability table joined to the MLflow trace_id.
-   Option 1 is lower-risk and sufficient for the rubric.
+**Was:** `state_table.json` was assembled ad hoc; no first-class object existed.
 
-## (c) `assist_log.jsonl` needs a live model-serving run
+**Fix:** added `app/server/db/views/workflow_state.sql` — a
+`CREATE OR REPLACE VIEW app.workflow_state` (committed as code, created live on
+the production branch) that unions assistant workflow turns (`app.messages` +
+tool-call observability from the `thinking` JSONB) with recorded `app.case_actions`
+decisions into one timestamped `(event_ts, event_kind, actor, payment_id, detail)`
+stream. `state_table.json` is now exported from this view. Deeper per-tool agent
+spans remain in MLflow traces; `trace_id` joins the view rows to that backend.
 
-**Observed:** capturing a real explanation + what-if requires running the agent
-against the Databricks Responses API (model serving) with an OBO/user token and
-the configured Genie space. This is a separate live step from the deterministic
-Lakebase exports.
+## (c) `assist_log.jsonl` needed a live model run — RESOLVED
 
-**Plan:**
-1. Run the agent (`configureAgentsSdk` + `run` from `caseops.ts`) or drive the
-   deployed app for two turns on PAY-0000202: (i) "why is PAY-0000202 flagged?"
-   (explanation via `find_flag` + `ask_data`), (ii) "what if we release instead of
-   hold?" (what-if via `rank_dispositions`). Log `{request, response, tool_calls}`
-   per turn to `assist_log.jsonl`.
-2. Requires a valid serving-endpoint bearer token and `GENIE_SPACE_ID`/model set.
+**Fix:** ran the agent live against the Databricks Responses API
+(`databricks-gpt-5-4`) for two turns on PAY-0000202 — an explanation (`find_flag`)
+and a what-if (`find_flag` + `rank_dispositions`, quoting the now-populated
+3-option ranking). Both are the model's real output with the real tool calls
+captured; no fabrication.
 
-## (d) Stale retail language in the agent system prompt
+## (d) Stale retail language in the agent system prompt — RESOLVED
 
-**Observed:** the instructions block in `app/server/agent/caseops.ts` still
-describes the tools in the template's original **retail/inventory** domain
-("transfer / expedite / substitute", "units", "nearest surplus store",
-"markdown-hold on the source surplus", "recaptured $"). The tool *schemas* and the
-DB are correct (payment/fraud domain: release / hold_for_verification /
-refer_to_investigation), but the prose the model reads is off-domain.
+**Fix:** rewrote the instructions block in `app/server/agent/caseops.ts`
+(commit `cde7f0d`) from the template's retail/inventory domain
+("transfer/expedite/substitute", "units", nonexistent `PAY-0000214`/Child Care)
+to the payment-integrity domain — correct tool params
+(`payment_id, action_type, hold_duration_hours, drafted_request,
+predicted_recovery_usd`), the real hero PAY-0000202, and disposition/hold/exposure
+language. The `assist_log.jsonl` run above used this rewritten prompt.
 
-**Plan:** rewrite the Phase 1–3 instructions + SUMMARY FORMAT in `caseops.ts` to
-the payment-integrity domain (dispositions, hold hours, improper-payment exposure,
-citizen-delay cost) so the model's drafts match the actual tools. Low-risk text
-change; would improve the quality of the `assist_log.jsonl` explanation/what-if.
+## Follow-ups (optional, not blocking)
+
+- The `action_ranking` economics live in the sync layer (app), matching the
+  existing pattern where `sync.ts` derives the disposition scalars. If a future
+  ML step (`03-ml-disposition`) produces a richer per-option ranking in the Gold
+  table, map it through in `sync.ts` in place of the heuristic builder.
+- A re-run of the demo "Reset" (`/api/admin/reset`) truncates + re-syncs the
+  mirrors and wipes `case_actions`; re-run the `execute_case_action` hero write
+  afterward to restore the closed-loop snapshot.

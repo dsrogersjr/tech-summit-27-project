@@ -20,13 +20,19 @@ match and the income discrepancy can be confirmed.
 
 ## Model recommendation and what-if
 
-From `app.dispo_recs` (payment PAY-0000202):
+Ranked dispositions from `app.dispo_recs.action_ranking` (payment PAY-0000202):
 
-| Option | What happens | Economics |
-|---|---|---|
-| **Hold for verification (recommended)** | Hold, send this request, release or escalate on the reply | **+$1,678.42** projected recovery preserved pre-disbursement for a **~$48.42** citizen-delay cost |
-| Release | Disburse now | $0 recovered if the payment is improper — the full $2,582.18 exposure is realized |
-| Refer to investigation | Full investigation path | Higher assurance, but longer citizen delay and higher cost than a short hold |
+| Disposition | Hold hours | Cost | Predicted recovery | Net value |
+|---|---|---|---|---|
+| Release | 0 | $0.00 | $0.00 | $0.00 |
+| **Hold for verification (recommended)** | 72 | $48.42 | $1,678.42 | **$1,630.00** |
+| Refer to investigation | 240 (~10 days) | $161.40 | $2,582.18 | $2,420.78 |
+
+Note the nuance: **refer to investigation** shows the highest gross net value
+($2,420.78) because it recovers the full improper exposure — but the recommended
+disposition is **hold for verification**. The signal-strength policy (2 fraud
+signals) prefers the least-intrusive disposition that still stops disbursement;
+the ranking's net values are advisory economics, not the policy authority.
 
 **What-if (release vs. hold):** releasing avoids the ~$48 delay cost but forgoes
 the $1,678 projected recovery and accepts the $2,582 exposure. Holding trades ~$48
