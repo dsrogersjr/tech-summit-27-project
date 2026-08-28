@@ -40,7 +40,13 @@ if databricks serving-endpoints get "$ENDPOINT" "${PF[@]}" >/dev/null 2>&1; then
   echo "[gov-llm] endpoint exists — skipping create"
 else
   echo "[gov-llm] creating $ENDPOINT (external_model → databricks-gpt-5-4, task llm/v1/chat) …"
-  databricks serving-endpoints create "$ENDPOINT" "${PF[@]}" --json "{
+  # NOTE: with --json the CLI requires "name" IN the JSON (no positional NAME).
+  # Budget policy: the workspace DEFAULT policy (tech_summit_27_sentenel) auto-applies
+  # to serverless usage and is NOT explicitly pinnable (budget_policy_id stays null).
+  # To pin a NON-default policy, set BUDGET_POLICY_ID and it's passed via --budget-policy-id.
+  BP_FLAG=(); [[ -n "${BUDGET_POLICY_ID:-}" ]] && BP_FLAG=(--budget-policy-id "$BUDGET_POLICY_ID")
+  databricks serving-endpoints create "${PF[@]}" "${BP_FLAG[@]}" --json "{
+    \"name\": \"$ENDPOINT\",
     \"config\": {
       \"served_entities\": [{
         \"name\": \"sentinel-agent-llm\",
@@ -62,7 +68,7 @@ fi
 # NOTE: this is the governance layer. inference_table_config logs every request +
 # response to <catalog>.<schema>.<prefix>_payload as a governed Delta table.
 echo "[gov-llm] enabling AI Gateway inference table + usage tracking …"
-databricks serving-endpoints put-ai-gateway "$ENDPOINT" "${PF[@]}" --json "{
+if ! databricks serving-endpoints put-ai-gateway "$ENDPOINT" "${PF[@]}" --json "{
   \"usage_tracking_config\": { \"enabled\": true },
   \"inference_table_config\": {
     \"enabled\": true,
@@ -70,7 +76,14 @@ databricks serving-endpoints put-ai-gateway "$ENDPOINT" "${PF[@]}" --json "{
     \"schema_name\": \"$IT_SCHEMA\",
     \"table_name_prefix\": \"sentinel_agent_llm\"
   }
-}"
+}" 2>/tmp/gov_llm_gw.err; then
+  if grep -qi "already exists" /tmp/gov_llm_gw.err; then
+    echo "[gov-llm]   payload table already exists — gateway left as-is. To re-provision, DROP"
+    echo "[gov-llm]   ${IT_CATALOG}.${IT_SCHEMA}.sentinel_agent_llm_payload first, then re-run."
+  else
+    cat /tmp/gov_llm_gw.err >&2; exit 1
+  fi
+fi
 # (Task 4 adds the guardrails block to this same put-ai-gateway call — see
 #  set_llm_guardrails.sh.)
 

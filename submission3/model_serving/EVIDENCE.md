@@ -57,3 +57,23 @@ The agent used the FM **Responses API** directly. It now routes through
 `sentinel-agent-llm` (see `endpoint.json` / permissions), and the live test query
 above confirms requests to the endpoint succeed and are subject to its AI Gateway
 (usage tracking + inference-table capture). Server `tsc -b tsconfig.server.json` → exit 0.
+
+## Budget policy attachment
+
+The endpoint's serverless usage is governed by the **`tech_summit_27_sentenel`
+budget policy** (`f3f67b92-c3de-3903-b6a2-3f7ee227de07`; see `../budget_evidence.md`).
+That policy is the **workspace default** (tagged `databricks-default-policy: true`),
+so it **auto-applies** to this endpoint's serverless usage and cannot be explicitly
+pinned — `serving-endpoints get` shows `budget_policy_id: null`, which *means* "the
+default policy applies" (verified: passing `--budget-policy-id` / a JSON
+`budget_policy_id` on create is a no-op for the default policy, so it stays null).
+To pin a *non-default* policy instead, pass its id via `--budget-policy-id` at
+create — see `create_governed_llm_endpoint.sh`.
+
+## AI Gateway confirmation (serving through the gateway)
+
+`endpoint.json` (`ai_gateway`) shows the endpoint serves through AI Gateway with
+`inference_table_config.enabled = true` and `usage_tracking_config.enabled = true`;
+the served entity is the external-model proxy and every query is captured to the
+inference table. The app routes to this endpoint (Task 5), so all app LLM traffic
+is served through the gateway.
